@@ -332,7 +332,7 @@ def upload_image():
         img = Image.open(file.stream)
         client = genai.Client(api_key=cfg.GEMINI_API_KEY)
         response = client.models.generate_content(
-            model="gemini-1.5-flash",
+            model="gemini-2.0-flash",
             contents=[img, "Describe this image in detail:"]
         )
         return jsonify({"text": response.text.strip()})
@@ -342,19 +342,95 @@ def upload_image():
 
 @app.route("/api/upload/document", methods=["POST"])
 def upload_document():
-    if "file" not in request.files: return jsonify({"error": "No file part"}), 400
+    """Upload a document (TXT, PDF, DOCX) and get an AI summary in the document's language."""
+    if "file" not in request.files:
+        return jsonify({"error": "No file part"}), 400
     file = request.files["file"]
-    if file.filename == "": return jsonify({"error": "No selected file"}), 400
-    
+    if file.filename == "":
+        return jsonify({"error": "No selected file"}), 400
+
     try:
-        content = file.read().decode('utf-8', errors='ignore')
-        
-        # Inject into conversation history
+        filename = file.filename.lower()
+        raw_bytes = file.read()
+        content = ""
+
+        # ── Extract readable text based on file type ──────────────────────────
+        if filename.endswith(".pdf"):
+            try:
+                import io
+                import pypdf
+                reader = pypdf.PdfReader(io.BytesIO(raw_bytes))
+                content = "\n".join(
+                    page.extract_text() or "" for page in reader.pages
+                ).strip()
+            except ImportError:
+                # pypdf not installed — fall back to raw decode
+                content = raw_bytes.decode("utf-8", errors="ignore")
+            except Exception as pdf_err:
+                logger.warning("PDF extraction failed: %s", pdf_err)
+                content = raw_bytes.decode("utf-8", errors="ignore")
+
+        elif filename.endswith(".docx"):
+            try:
+                import io
+                import docx
+                doc = docx.Document(io.BytesIO(raw_bytes))
+                content = "\n".join(para.text for para in doc.paragraphs if para.text).strip()
+            except ImportError:
+                content = raw_bytes.decode("utf-8", errors="ignore")
+            except Exception as docx_err:
+                logger.warning("DOCX extraction failed: %s", docx_err)
+                content = raw_bytes.decode("utf-8", errors="ignore")
+
+        else:
+            # Plain text / CSV / Markdown / etc.
+            # Try common encodings so non-English text is not garbled
+            for enc in ("utf-8", "utf-16", "latin-1", "cp1252"):
+                try:
+                    content = raw_bytes.decode(enc)
+                    break
+                except (UnicodeDecodeError, LookupError):
+                    continue
+            if not content:
+                content = raw_bytes.decode("utf-8", errors="replace")
+
+        # Trim to avoid exceeding context limits (~12 000 chars)
+        MAX_CHARS = 12_000
+        truncated = len(content) > MAX_CHARS
+        excerpt = content[:MAX_CHARS]
+
+        if not excerpt.strip():
+            return jsonify({"error": "Could not extract any readable text from the document."}), 422
+
+        # ── Inject document context into conversation ─────────────────────────
         session_id = request.form.get("session_id") or get_session_id()
-        from assistant import conversation_store
-        conversation_store.add(session_id, "user", f"I have uploaded a document. Here is its content:\n\n{content}")
-        
-        return jsonify({"text": f"I have read the document. It contains {len(content)} characters. What would you like to know about it?", "content": content})
+        user_lang = request.form.get("lang", "")          # optional hint from client
+        from assistant import conversation_store, get_ai_response
+        conversation_store.add(
+            session_id, "user",
+            f"I have uploaded a document. Here is its content:\n\n{excerpt}"
+        )
+
+        # ── Ask the AI for an immediate, language-aware summary ───────────────
+        lang_instruction = (
+            f" Respond in {user_lang}." if user_lang
+            else " Detect the language of the document and respond in that same language."
+        )
+        summary_prompt = (
+            f"The user just uploaded a document.{lang_instruction} "
+            "Please provide a concise summary of the document in 3-5 sentences, "
+            "highlighting the key points. Do not include any encoded or binary text — "
+            "only present clean, readable information."
+        )
+        summary = get_ai_response(summary_prompt, session_id)
+
+        truncation_note = " (Note: the document was very long — only the first portion was analysed.)" if truncated else ""
+        return jsonify({
+            "text": summary + truncation_note,
+            "content": excerpt,
+            "chars": len(content),
+        })
+
     except Exception as e:
         logger.exception("Document upload error")
         return jsonify({"error": str(e)}), 500
