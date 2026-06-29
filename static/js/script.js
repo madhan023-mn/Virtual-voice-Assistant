@@ -20,7 +20,86 @@ const state = {
   chatHistory: [],           // [{role, text, time}]
   calcExpression: '',
   calcValue: '0',
+  selectedLang: 'English',   // default response language
 };
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Language Selector
+// ──────────────────────────────────────────────────────────────────────────────
+
+const LANGUAGES = [
+  { label: '🇺🇸 English',    value: 'English',    bcp47: 'en-US' },
+  { label: '🇮🇳 Hindi',      value: 'Hindi',      bcp47: 'hi-IN' },
+  { label: '🇮🇳 Tamil',      value: 'Tamil',      bcp47: 'ta-IN' },
+  { label: '🇮🇳 Telugu',     value: 'Telugu',     bcp47: 'te-IN' },
+  { label: '🇮🇳 Kannada',    value: 'Kannada',    bcp47: 'kn-IN' },
+  { label: '🇮🇳 Malayalam',  value: 'Malayalam',  bcp47: 'ml-IN' },
+  { label: '🇸🇦 Arabic',     value: 'Arabic',     bcp47: 'ar-SA' },
+  { label: '🇫🇷 French',     value: 'French',     bcp47: 'fr-FR' },
+  { label: '🇩🇪 German',     value: 'German',     bcp47: 'de-DE' },
+  { label: '🇪🇸 Spanish',    value: 'Spanish',    bcp47: 'es-ES' },
+  { label: '🇵🇹 Portuguese', value: 'Portuguese', bcp47: 'pt-PT' },
+  { label: '🇯🇵 Japanese',   value: 'Japanese',   bcp47: 'ja-JP' },
+  { label: '🇰🇷 Korean',     value: 'Korean',     bcp47: 'ko-KR' },
+  { label: '🇨🇳 Chinese',    value: 'Chinese',    bcp47: 'zh-CN' },
+  { label: '🇷🇺 Russian',    value: 'Russian',    bcp47: 'ru-RU' },
+];
+
+function buildLangOptions() {
+  const container = document.getElementById('lang-options');
+  if (!container) return;
+  container.innerHTML = LANGUAGES.map(l => `
+    <div class="lang-option" id="lang-opt-${l.value}"
+      onclick="selectLang('${l.value}','${l.bcp47}')"
+      style="padding:6px 12px;border-radius:8px;cursor:pointer;font-size:0.85rem;
+             color:var(--text-primary);transition:background .15s;
+             background:${ l.value === state.selectedLang ? 'var(--primary-subtle,rgba(124,58,237,.18))' : 'transparent' };"
+      onmouseover="this.style.background='var(--bg-surface)'" onmouseout="this.style.background='${l.value === state.selectedLang ? 'var(--primary-subtle,rgba(124,58,237,.18))' : 'transparent'}'">
+      ${l.label}${ l.value === state.selectedLang ? ' ✓' : '' }
+    </div>`).join('');
+}
+
+function selectLang(value, bcp47) {
+  state.selectedLang = value;
+  if (state.recognition) state.recognition.lang = bcp47;
+  updateLangBtn();
+  buildLangOptions();
+  document.getElementById('lang-custom').value = '';
+  closeLangDropdown();
+  showToast(`Language set to ${value}`, 'success', 2000);
+}
+
+function setCustomLang(value) {
+  if (value.trim()) state.selectedLang = value.trim();
+}
+
+function updateLangBtn() {
+  const btn = document.getElementById('lang-btn');
+  if (!btn) return;
+  const match = LANGUAGES.find(l => l.value === state.selectedLang);
+  const flag = match ? match.label.split(' ')[0] : '🌐';
+  btn.title = `Language: ${state.selectedLang}`;
+  btn.innerHTML = `<span style="font-size:1.1rem;line-height:1">${flag}</span>`;
+}
+
+function toggleLangDropdown() {
+  const dd = document.getElementById('lang-dropdown');
+  if (!dd) return;
+  const open = dd.style.display !== 'none';
+  dd.style.display = open ? 'none' : 'block';
+  if (!open) { buildLangOptions(); document.getElementById('lang-custom').value = ''; }
+}
+
+function closeLangDropdown() {
+  const dd = document.getElementById('lang-dropdown');
+  if (dd) dd.style.display = 'none';
+}
+
+// Close dropdown when clicking outside
+document.addEventListener('click', (e) => {
+  const wrapper = document.getElementById('lang-selector-wrapper');
+  if (wrapper && !wrapper.contains(e.target)) closeLangDropdown();
+});
 
 // ──────────────────────────────────────────────────────────────────────────────
 // DOM References
@@ -348,7 +427,11 @@ async function sendMessage(messageText) {
     const response = await fetch('/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: text, session_id: state.sessionId }),
+      body: JSON.stringify({
+        message: text,
+        session_id: state.sessionId,
+        lang: state.selectedLang,
+      }),
     });
 
     if (!response.ok) {
@@ -852,6 +935,8 @@ function init() {
   setupKeyboardShortcuts();
   loadChatHistory();
   checkHealth();
+  buildLangOptions();
+  updateLangBtn();
 
   // Voices may load asynchronously
   if (window.speechSynthesis) {
@@ -872,5 +957,10 @@ window.openCalculator = openCalculator;
 window.closeCalculator = closeCalculator;
 window.loadHistoryItem = loadHistoryItem;
 window.toggleSpeech = toggleSpeech;
+window.toggleLangDropdown = toggleLangDropdown;
+window.closeLangDropdown = closeLangDropdown;
+window.selectLang = selectLang;
+window.setCustomLang = setCustomLang;
+window.exitInterview = exitInterview;
 
 document.addEventListener('DOMContentLoaded', init);

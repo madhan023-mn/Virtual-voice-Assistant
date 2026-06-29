@@ -109,6 +109,7 @@ def chat():
             return jsonify({"error": "Message is required."}), 400
 
         session_id = data.get("session_id") or get_session_id()
+        lang = (data.get("lang") or "English").strip()
         logger.info("Chat [%s]: %s", session_id[:8], user_message)
 
         # 1. Try built-in commands first
@@ -116,8 +117,14 @@ def chat():
         if command_result is not None:
             return jsonify(command_result)
 
-        # 2. Fall through to AI response
-        ai_text = get_ai_response(user_message, session_id)
+        # 2. Prepend language instruction so AI always responds in chosen language
+        if lang and lang.lower() != "english":
+            ai_input = f"[Respond only in {lang}. Do not switch language under any circumstance.]\n{user_message}"
+        else:
+            ai_input = user_message
+
+        # 3. Fall through to AI response
+        ai_text = get_ai_response(ai_input, session_id)
         return jsonify({"text": ai_text})
 
     except Exception as exc:

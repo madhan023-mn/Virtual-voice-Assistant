@@ -154,6 +154,24 @@
       </div>
 
       <div class="topbar-actions">
+        <!-- Language Selector -->
+        <div id="lang-selector-wrapper" style="position:relative;display:inline-block;">
+          <button id="lang-btn" class="icon-btn" title="Response language" aria-label="Select response language" onclick="toggleLangDropdown()">
+            <span class="material-symbols-rounded">language</span>
+          </button>
+          <div id="lang-dropdown" style="display:none;position:absolute;right:0;top:44px;background:var(--bg-elevated);border:1px solid var(--border);border-radius:12px;padding:8px;min-width:200px;z-index:1000;box-shadow:0 8px 32px rgba(0,0,0,.4);">
+            <div style="padding:6px 10px;font-size:0.7rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.08em;">Response Language</div>
+            <div id="lang-options" style="display:flex;flex-direction:column;gap:2px;max-height:280px;overflow-y:auto;">
+              <!-- populated by JS -->
+            </div>
+            <div style="border-top:1px solid var(--border);margin-top:6px;padding-top:6px;">
+              <input id="lang-custom" type="text" placeholder="Type a language…" maxlength="30"
+                style="width:100%;background:var(--bg-surface);border:1px solid var(--border);border-radius:8px;padding:5px 10px;color:var(--text-primary);font-size:0.8rem;outline:none;"
+                oninput="setCustomLang(this.value)" onkeydown="if(event.key==='Enter'){closeLangDropdown()}"/>
+            </div>
+          </div>
+        </div>
+
         <a href="/logout" class="icon-btn" title="Logout" aria-label="Logout" style="text-decoration: none;">
           <span class="material-symbols-rounded">logout</span>
         </a>
