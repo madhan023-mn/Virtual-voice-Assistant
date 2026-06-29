@@ -79,7 +79,7 @@ def _chat_with_gemini(history: list[dict], user_message: str) -> str:
     )
 
     response = client.models.generate_content(
-        model='gemini-1.5-flash',
+        model='gemini-2.0-flash',
         contents=contents,
         config=genai.types.GenerateContentConfig(
             system_instruction=SYSTEM_PROMPT,
