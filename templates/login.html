@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ARIA — Login</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+  <style>
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: radial-gradient(circle at top left, var(--bg-surface), var(--bg-void));
+    }
+    
+    .login-wrapper {
+      position: relative;
+      width: 100%;
+      max-width: 420px;
+      padding: 20px;
+      z-index: 10;
+    }
+
+    .login-card {
+      background: rgba(15, 23, 42, 0.6);
+      backdrop-filter: blur(40px) saturate(200%);
+      -webkit-backdrop-filter: blur(40px) saturate(200%);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-top: 1px solid rgba(255, 255, 255, 0.3);
+      border-radius: 24px;
+      padding: 40px;
+      box-shadow: 0 35px 60px rgba(0,0,0,0.6), inset 0 2px 15px rgba(255,255,255,0.08);
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+      transition: transform 0.3s ease;
+    }
+
+    .login-card:hover {
+        transform: translateY(-5px);
+    }
+
+    .login-card::before {
+      content: '';
+      position: absolute;
+      top: -50px;
+      left: -50px;
+      width: 150px;
+      height: 150px;
+      background: var(--primary-glow);
+      filter: blur(60px);
+      border-radius: 50%;
+      z-index: -1;
+    }
+    
+    .login-card::after {
+      content: '';
+      position: absolute;
+      bottom: -50px;
+      right: -50px;
+      width: 150px;
+      height: 150px;
+      background: rgba(56, 189, 248, 0.2);
+      filter: blur(60px);
+      border-radius: 50%;
+      z-index: -1;
+    }
+
+    .logo-container {
+      margin-bottom: 24px;
+    }
+
+    .logo-container .material-symbols-rounded {
+      font-size: 64px;
+      background: linear-gradient(135deg, #a78bfa, #8b5cf6);
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      filter: drop-shadow(0 8px 15px rgba(139, 92, 246, 0.4));
+      animation: float 4s ease-in-out infinite;
+    }
+
+    @keyframes float {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-10px); }
+    }
+
+    h1 {
+      font-size: 2rem;
+      font-weight: 800;
+      background: linear-gradient(135deg, #ffffff, #94a3b8);
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 8px;
+    }
+
+    p.subtitle {
+      color: var(--text-secondary);
+      font-size: 0.95rem;
+      margin-bottom: 32px;
+    }
+
+    .input-group {
+      margin-bottom: 24px;
+      text-align: left;
+    }
+
+    .input-group label {
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      margin-bottom: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .premium-input {
+      width: 100%;
+      padding: 16px 20px;
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 16px;
+      color: white;
+      font-size: 1rem;
+      font-family: inherit;
+      outline: none;
+      transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+      box-shadow: inset 0 2px 8px rgba(0,0,0,0.5);
+    }
+
+    .premium-input:focus {
+      border-color: #8b5cf6;
+      background: rgba(0, 0, 0, 0.5);
+      box-shadow: inset 0 2px 8px rgba(0,0,0,0.5), 0 0 20px rgba(139, 92, 246, 0.3);
+      transform: translateY(-2px);
+    }
+
+    .premium-btn {
+      width: 100%;
+      padding: 16px;
+      margin-top: 10px;
+      background: linear-gradient(145deg, #a78bfa, #7c3aed);
+      border: 1px solid rgba(255,255,255,0.2);
+      border-top: 1px solid rgba(255,255,255,0.4);
+      border-radius: 16px;
+      color: white;
+      font-size: 1.1rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+      box-shadow: inset 0px -4px 10px rgba(0,0,0,0.2), 0 10px 25px rgba(124,58,237,0.5);
+      text-shadow: 0 2px 4px rgba(0,0,0,0.4);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .premium-btn:hover {
+      transform: translateY(-3px) scale(1.02);
+      box-shadow: inset 0px -4px 10px rgba(0,0,0,0.2), 0 15px 35px rgba(124,58,237,0.7);
+      background: linear-gradient(145deg, #b8a2fa, #8b5cf6);
+    }
+
+    .premium-btn:active {
+      transform: translateY(1px) scale(0.98);
+      box-shadow: inset 0px 4px 15px rgba(0,0,0,0.4), 0 5px 10px rgba(124,58,237,0.3);
+      border-top: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .toggle-link {
+      margin-top: 28px;
+      font-size: 0.9rem;
+      color: var(--text-muted);
+    }
+
+    .toggle-link a {
+      color: #a78bfa;
+      text-decoration: none;
+      font-weight: 700;
+      transition: color 0.2s, text-shadow 0.2s;
+    }
+
+    .toggle-link a:hover {
+      color: #c4b5fd;
+      text-shadow: 0 0 10px rgba(196, 181, 253, 0.5);
+    }
+
+    .alert {
+      padding: 14px;
+      border-radius: 12px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      margin-bottom: 24px;
+      background: rgba(239, 68, 68, 0.15);
+      border: 1px solid rgba(239, 68, 68, 0.4);
+      color: #fca5a5;
+      backdrop-filter: blur(10px);
+    }
+  </style>
+</head>
+<body>
+  
+  <div class="bg-particles">
+    <div class="particle"></div>
+    <div class="particle"></div>
+    <div class="particle"></div>
+  </div>
+
+  <div class="login-wrapper">
+    <div class="login-card">
+      <div class="logo-container">
+        <span class="material-symbols-rounded">smart_toy</span>
+      </div>
+      
+      <h1>Welcome to ARIA</h1>
+      <p class="subtitle" id="form-subtitle">Sign in to continue</p>
+      
+      {% if error %}
+      <div class="alert">{{ error }}</div>
+      {% endif %}
+      {% if msg %}
+      <div class="alert" style="background: rgba(16, 185, 129, 0.15); border-color: rgba(16, 185, 129, 0.4); color: #6ee7b7;">
+        {{ msg }}
+      </div>
+      {% endif %}
+
+      <form id="auth-form" method="POST" action="/login">
+        <div class="input-group">
+          <label for="username">Username</label>
+          <input type="text" id="username" name="username" class="premium-input" placeholder="Enter username" required autocomplete="off" />
+        </div>
+        
+        <div class="input-group">
+          <label for="password">Password</label>
+          <input type="password" id="password" name="password" class="premium-input" placeholder="••••••••" required />
+        </div>
+        
+        <button type="submit" id="submit-btn" class="premium-btn">
+            Sign In <span class="material-symbols-rounded" style="font-size: 20px;">login</span>
+        </button>
+      </form>
+      
+      <div class="toggle-link">
+        <span id="toggle-text">Don't have an account?</span>
+        <a href="#" id="toggle-action" onclick="toggleMode(event)">Register here</a>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let isLogin = true;
+    
+    function toggleMode(e) {
+      e.preventDefault();
+      isLogin = !isLogin;
+      
+      const form = document.getElementById('auth-form');
+      const title = document.querySelector('h1');
+      const subtitle = document.getElementById('form-subtitle');
+      const submitBtn = document.getElementById('submit-btn');
+      const toggleText = document.getElementById('toggle-text');
+      const toggleAction = document.getElementById('toggle-action');
+      
+      if (isLogin) {
+        form.action = '/login';
+        title.textContent = 'Welcome to ARIA';
+        subtitle.textContent = 'Sign in to continue';
+        submitBtn.innerHTML = 'Sign In <span class="material-symbols-rounded" style="font-size: 20px;">login</span>';
+        toggleText.textContent = "Don't have an account?";
+        toggleAction.textContent = 'Register here';
+      } else {
+        form.action = '/register';
+        title.textContent = 'Create Account';
+        subtitle.textContent = 'Join ARIA today';
+        submitBtn.innerHTML = 'Register <span class="material-symbols-rounded" style="font-size: 20px;">person_add</span>';
+        toggleText.textContent = 'Already have an account?';
+        toggleAction.textContent = 'Sign in here';
+      }
+    }
+  </script>
+</body>
+</html>

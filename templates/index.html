@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="ARIA — Artificial Responsive Intelligent Assistant. A powerful AI voice assistant with weather, news, Wikipedia search, jokes, and more." />
+  <meta name="theme-color" content="#7c3aed" />
+  <meta property="og:title" content="ARIA — AI Virtual Voice Assistant" />
+  <meta property="og:description" content="Chat with ARIA, your intelligent AI assistant powered by Gemini AI." />
+  <meta property="og:type" content="website" />
+
+  <title>ARIA — AI Virtual Voice Assistant</title>
+
+  <!-- Favicon SVG -->
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🤖</text></svg>" />
+
+  <!-- Google Material Symbols -->
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+
+  <!-- Stylesheet -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+</head>
+<body>
+
+<!-- ── Animated Background ─────────────────────────────────── -->
+<div class="bg-particles" aria-hidden="true">
+  <div class="particle"></div>
+  <div class="particle"></div>
+  <div class="particle"></div>
+</div>
+
+<!-- ── App Shell ───────────────────────────────────────────── -->
+<div id="app">
+
+  <!-- ── Sidebar ─────────────────────────────────────────── -->
+  <aside id="sidebar" role="navigation" aria-label="Sidebar navigation" class="glass-panel">
+    <div class="sidebar-header">
+      <div class="sidebar-logo">
+        <div class="logo-icon" aria-hidden="true"><span class="material-symbols-rounded">smart_toy</span></div>
+        <div>
+          <h1>ARIA</h1>
+          <p>AI Voice Assistant</p>
+        </div>
+      </div>
+      <button id="new-chat-btn" aria-label="Start new conversation" class="tactile-btn">
+        <span aria-hidden="true" class="material-symbols-rounded" style="vertical-align: middle; font-size: 18px; margin-right: 4px;">add_comment</span> New Chat
+      </button>
+    </div>
+
+    <!-- Quick Nav -->
+    <nav class="sidebar-nav" aria-label="Quick actions">
+      <h3>Tools</h3>
+      <div class="nav-item" onclick="document.getElementById('file-input').click()" role="button" tabindex="0">
+        <span class="nav-icon"><span class="material-symbols-rounded">image_search</span></span>
+        <span>Photo Analysis</span>
+      </div>
+      <div class="nav-item" onclick="document.getElementById('doc-input').click()" role="button" tabindex="0">
+        <span class="nav-icon"><span class="material-symbols-rounded">description</span></span>
+        <span>Document Reader</span>
+      </div>
+      <div class="nav-item" onclick="document.getElementById('resume-input').click()" role="button" tabindex="0">
+        <span class="nav-icon"><span class="material-symbols-rounded">work</span></span>
+        <span>Mock Interview</span>
+      </div>
+      <div class="nav-item active" onclick="document.getElementById('message-input').focus()" role="button" tabindex="0">
+        <span class="nav-icon"><span class="material-symbols-rounded">psychology</span></span>
+        <span>AI Chat</span>
+      </div>
+
+      <h3 style="margin-top:20px;">Quick Actions</h3>
+      <div class="nav-item" onclick="handleSuggestion('What can you do?')" role="button" tabindex="0" aria-label="Ask about capabilities">
+        <span class="nav-icon"><span class="material-symbols-rounded">lightbulb</span></span>
+        <span>What can you do?</span>
+      </div>
+      <div class="nav-item" onclick="handleSuggestion('What\'s the weather like?')" role="button" tabindex="0" aria-label="Check weather">
+        <span class="nav-icon"><span class="material-symbols-rounded">partly_cloudy_day</span></span>
+        <span>Weather Check</span>
+      </div>
+      <div class="nav-item" onclick="handleSuggestion('Tell me the latest news')" role="button" tabindex="0" aria-label="Get news">
+        <span class="nav-icon"><span class="material-symbols-rounded">newspaper</span></span>
+        <span>Latest News</span>
+      </div>
+      <div class="nav-item" onclick="handleSuggestion('Tell me a joke')" role="button" tabindex="0" aria-label="Get joke">
+        <span class="nav-icon"><span class="material-symbols-rounded">sentiment_very_satisfied</span></span>
+        <span>Tell a Joke</span>
+      </div>
+      <div class="nav-item" onclick="handleSuggestion('Give me a random fact')" role="button" tabindex="0" aria-label="Random fact">
+        <span class="nav-icon"><span class="material-symbols-rounded">science</span></span>
+        <span>Random Fact</span>
+      </div>
+      <div class="nav-item" onclick="openCalculator()" role="button" tabindex="0" aria-label="Open calculator">
+        <span class="nav-icon"><span class="material-symbols-rounded">calculate</span></span>
+        <span>Calculator</span>
+      </div>
+    </nav>
+
+    {% if username == 'developer' %}
+    <!-- Developer Dashboard -->
+    <div class="chat-history-section" aria-label="Registered users">
+      <h3>Registered Users (Admin)</h3>
+      <div id="developer-user-list" role="list" style="max-height: 250px; overflow-y: auto;">
+        <div style="padding:8px 12px;font-size:0.75rem;color:var(--text-muted)">Loading users...</div>
+      </div>
+    </div>
+    {% else %}
+    <!-- Chat History -->
+    <div class="chat-history-section" aria-label="Chat history">
+      <h3>Recent Chats</h3>
+      <div id="chat-history-list" role="list">
+        <div style="padding:8px 12px;font-size:0.75rem;color:var(--text-muted)">No history yet</div>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Footer -->
+    <div class="sidebar-footer">
+      <div class="status-badge glass-badge" role="status" aria-live="polite">
+        <div class="status-dot" aria-hidden="true"></div>
+        <span id="status-text">ARIA Online · Checking...</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Sidebar overlay (mobile) -->
+  <div id="sidebar-overlay" aria-hidden="true"></div>
+
+  <!-- ── Main Chat ────────────────────────────────────────── -->
+  <main id="main" role="main">
+
+    <!-- Mock Interview Banner -->
+    <div id="interview-banner" class="glass-banner" style="display: none; padding: 12px 24px; align-items: center; justify-content: space-between; z-index: 10;">
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <span class="material-symbols-rounded" style="color: var(--warning); font-size: 24px;">record_voice_over</span>
+        <div>
+          <strong style="color: var(--text-primary); font-size: 0.95rem;">Mock Interview Mode Active</strong>
+          <div style="color: var(--text-secondary); font-size: 0.8rem;">ARIA is evaluating your responses based on your resume.</div>
+        </div>
+      </div>
+      <button id="exit-interview-btn" class="tactile-btn warning-btn" onclick="exitInterview()">Exit Interview</button>
+    </div>
+
+    <!-- Top Bar -->
+    <header id="topbar" role="banner" class="glass-header">
+      <button id="sidebar-toggle" aria-label="Toggle sidebar" title="Toggle sidebar (Ctrl+/)">
+        <span class="material-symbols-rounded">menu</span>
+      </button>
+
+      <div class="topbar-info">
+        <div class="topbar-avatar" aria-hidden="true"><span class="material-symbols-rounded">smart_toy</span></div>
+        <div>
+          <h2>ARIA</h2>
+          <p>Online · Ready</p>
+        </div>
+      </div>
+
+      <div class="topbar-actions">
+        <a href="/logout" class="icon-btn" title="Logout" aria-label="Logout" style="text-decoration: none;">
+          <span class="material-symbols-rounded">logout</span>
+        </a>
+        <button id="speech-toggle" class="icon-btn" title="Toggle voice output" aria-label="Toggle voice output">
+          <span class="material-symbols-rounded">volume_up</span>
+        </button>
+        <button id="clear-btn" class="icon-btn" title="Clear conversation" aria-label="Clear conversation">
+          <span class="material-symbols-rounded">delete</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Messages Container -->
+    <div id="chat-messages" role="log" aria-label="Chat messages" aria-live="polite">
+      <div class="messages-inner" id="messages-inner">
+
+        <!-- Welcome Screen -->
+        <div class="welcome-screen" id="welcome-screen" aria-label="Welcome">
+          <div class="welcome-avatar">
+            <div class="avatar-pulse" aria-hidden="true"></div>
+            <div class="avatar-ring" aria-hidden="true"></div>
+            <div class="avatar-image" aria-hidden="true"><span class="material-symbols-rounded" style="font-size: 48px; color: var(--primary-light);">smart_toy</span></div>
+          </div>
+          <h2>Hi, I'm ARIA</h2>
+          <p>
+            Your Artificial Responsive Intelligent Assistant — powered by AI.<br>
+            Ask me anything, search the web, check the weather, get news, and more.
+            <br><br>
+            <strong style="color:var(--primary-light)"><span class="material-symbols-rounded" style="vertical-align: middle; font-size: 20px;">mic</span> Try speaking</strong> or type a message below!
+          </p>
+
+          <!-- Suggestion Chips -->
+          <div class="suggestions" role="list" aria-label="Suggested actions">
+            <button class="suggestion-chip tactile-chip" onclick="handleSuggestion('What time is it?')" role="listitem">
+              <span class="material-symbols-rounded" style="vertical-align: middle; font-size: 16px;">schedule</span> Current Time
+            </button>
+            <button class="suggestion-chip tactile-chip" onclick="handleSuggestion('What\'s the weather in London?')" role="listitem">
+              <span class="material-symbols-rounded" style="vertical-align: middle; font-size: 16px;">partly_cloudy_day</span> Weather
+            </button>
+            <button class="suggestion-chip tactile-chip" onclick="handleSuggestion('Tell me the latest technology news')" role="listitem">
+              <span class="material-symbols-rounded" style="vertical-align: middle; font-size: 16px;">newspaper</span> Tech News
+            </button>
+            <button class="suggestion-chip tactile-chip" onclick="handleSuggestion('Tell me a joke')" role="listitem">
+              <span class="material-symbols-rounded" style="vertical-align: middle; font-size: 16px;">sentiment_very_satisfied</span> Joke
+            </button>
+            <button class="suggestion-chip tactile-chip" onclick="handleSuggestion('Give me a random fact')" role="listitem">
+              <span class="material-symbols-rounded" style="vertical-align: middle; font-size: 16px;">science</span> Fun Fact
+            </button>
+            <button class="suggestion-chip tactile-chip" onclick="handleSuggestion('Search YouTube for lofi music')" role="listitem">
+              <span class="material-symbols-rounded" style="vertical-align: middle; font-size: 16px;">music_note</span> YouTube
+            </button>
+            <button class="suggestion-chip tactile-chip" onclick="handleSuggestion('Convert 100 USD to EUR')" role="listitem">
+              <span class="material-symbols-rounded" style="vertical-align: middle; font-size: 16px;">currency_exchange</span> Currency
+            </button>
+            <button class="suggestion-chip tactile-chip" onclick="openCalculator()" role="listitem">
+              <span class="material-symbols-rounded" style="vertical-align: middle; font-size: 16px;">calculate</span> Calculator
+            </button>
+            <button class="suggestion-chip tactile-chip" onclick="handleSuggestion('Wikipedia: Artificial intelligence')" role="listitem">
+              <span class="material-symbols-rounded" style="vertical-align: middle; font-size: 16px;">menu_book</span> Wikipedia
+            </button>
+            <button class="suggestion-chip tactile-chip" onclick="handleSuggestion('Open Gmail')" role="listitem">
+              <span class="material-symbols-rounded" style="vertical-align: middle; font-size: 16px;">mail</span> Gmail
+            </button>
+          </div>
+        </div>
+        
+        <!-- Mock Interview specific UI block (shown only during interview) -->
+        <div id="mock-interview-ui" style="display: none;" class="glass-panel interview-panel">
+            <div class="interview-avatar">
+                <div class="avatar-pulse"></div>
+                <span class="material-symbols-rounded ai-avatar-icon" style="font-size: 64px; color: #fff;">smart_toy</span>
+            </div>
+            <div class="interview-text-content">
+                <h3 id="interview-question-heading">ARIA - Interviewer</h3>
+                <p id="interview-current-question">Please introduce yourself.</p>
+            </div>
+        </div>
+
+      </div><!-- /messages-inner -->
+    </div><!-- /chat-messages -->
+
+    <!-- Input Area -->
+    <div id="input-area" role="region" aria-label="Message input" class="glass-footer">
+      <div class="input-wrapper glass-input-wrapper">
+        <form id="input-form" role="search" aria-label="Chat form">
+          <textarea
+            id="message-input"
+            name="message"
+            placeholder="Type a message or press the mic to speak..."
+            rows="1"
+            maxlength="4000"
+            autocomplete="off"
+            autocorrect="on"
+            spellcheck="true"
+            aria-label="Message input"
+            aria-describedby="input-hint"
+          ></textarea>
+
+          <div class="input-actions">
+            <button
+              type="button"
+              id="mic-btn"
+              title="Voice input (click to speak)"
+              aria-label="Start voice input"
+              aria-pressed="false"
+              class="icon-btn tactile-icon-btn"
+            >
+              <span class="material-symbols-rounded">mic</span>
+            </button>
+            <button
+              type="submit"
+              id="send-btn"
+              title="Send message"
+              aria-label="Send message"
+              class="icon-btn tactile-icon-btn primary-icon-btn"
+            >
+              <span class="material-symbols-rounded">send</span>
+            </button>
+          </div>
+        </form>
+
+        <div class="input-hint" id="input-hint">
+          <div id="voice-status" class="voice-status" role="status" aria-live="assertive">
+            <div class="voice-status-dot" aria-hidden="true"></div>
+            <span id="voice-status-text">Listening…</span>
+          </div>
+          <span>Press <kbd style="font-size:0.65rem;padding:1px 4px;background:var(--bg-elevated);border-radius:3px;border:1px solid var(--border)">Enter</kbd> to send · <kbd style="font-size:0.65rem;padding:1px 4px;background:var(--bg-elevated);border-radius:3px;border:1px solid var(--border)">Shift+Enter</kbd> for new line</span>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- ── Calculator Modal ──────────────────────────────────── -->
+<div id="calculator-modal" role="dialog" aria-modal="true" aria-label="Calculator">
+  <div class="calc-card glass-panel">
+    <div class="calc-header">
+      <h3><span class="material-symbols-rounded" style="vertical-align: middle;">calculate</span> Calculator</h3>
+      <button id="calc-close" aria-label="Close calculator" onclick="closeCalculator()" class="icon-btn">✕</button>
+    </div>
+    <div id="calc-display" class="glass-display">
+      <div class="calc-expression" id="calc-expression"></div>
+      <div class="calc-result" id="calc-result">0</div>
+    </div>
+    <div class="calc-grid" role="group" aria-label="Calculator buttons">
+      <!-- Row 1 -->
+      <button class="calc-btn clear tactile-calc-btn" onclick="calcInput('C')" aria-label="Clear">C</button>
+      <button class="calc-btn operator tactile-calc-btn" onclick="calcInput('+/-')" aria-label="Toggle sign">+/-</button>
+      <button class="calc-btn operator tactile-calc-btn" onclick="calcInput('%')" aria-label="Percent">%</button>
+      <button class="calc-btn operator tactile-calc-btn" onclick="calcInput('÷')" aria-label="Divide">÷</button>
+      <!-- Row 2 -->
+      <button class="calc-btn tactile-calc-btn" onclick="calcInput('7')" aria-label="7">7</button>
+      <button class="calc-btn tactile-calc-btn" onclick="calcInput('8')" aria-label="8">8</button>
+      <button class="calc-btn tactile-calc-btn" onclick="calcInput('9')" aria-label="9">9</button>
+      <button class="calc-btn operator tactile-calc-btn" onclick="calcInput('×')" aria-label="Multiply">×</button>
+      <!-- Row 3 -->
+      <button class="calc-btn tactile-calc-btn" onclick="calcInput('4')" aria-label="4">4</button>
+      <button class="calc-btn tactile-calc-btn" onclick="calcInput('5')" aria-label="5">5</button>
+      <button class="calc-btn tactile-calc-btn" onclick="calcInput('6')" aria-label="6">6</button>
+      <button class="calc-btn operator tactile-calc-btn" onclick="calcInput('-')" aria-label="Subtract">−</button>
+      <!-- Row 4 -->
+      <button class="calc-btn tactile-calc-btn" onclick="calcInput('1')" aria-label="1">1</button>
+      <button class="calc-btn tactile-calc-btn" onclick="calcInput('2')" aria-label="2">2</button>
+      <button class="calc-btn tactile-calc-btn" onclick="calcInput('3')" aria-label="3">3</button>
+      <button class="calc-btn operator tactile-calc-btn" onclick="calcInput('+')" aria-label="Add">+</button>
+      <!-- Row 5 -->
+      <button class="calc-btn wide tactile-calc-btn" onclick="calcInput('0')" aria-label="0">0</button>
+      <button class="calc-btn tactile-calc-btn" onclick="calcInput('.')" aria-label="Decimal point">.</button>
+      <button class="calc-btn equals tactile-calc-btn" onclick="calcInput('=')" aria-label="Equals">=</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Toast Container ───────────────────────────────────── -->
+<div id="toast-container" role="region" aria-label="Notifications" aria-live="polite"></div>
+
+<!-- ── Hidden Inputs ─────────────────────────────────────── -->
+<input type="file" id="file-input" style="display: none;" accept="image/*" aria-hidden="true" />
+<input type="file" id="doc-input" style="display: none;" accept=".txt,.pdf,.docx" aria-hidden="true" />
+<input type="file" id="resume-input" style="display: none;" accept=".txt,.pdf,.docx" aria-hidden="true" />
+
+<!-- ── JavaScript ───────────────────────────────────────── -->
+<script src="{{ url_for('static', filename='js/script.js') }}"></script>
+
+</body>
+</html>
