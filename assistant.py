@@ -63,75 +63,76 @@ conversation_store = ConversationHistory()
 # ──────────────────────────────────────────────────────────────────────────────
 
 def _chat_with_gemini(history: list[dict], user_message: str) -> str:
-    """Send a message to Google Gemini and return the response."""
-    try:
-        from google import genai
-        
-        client = genai.Client(api_key=cfg.GEMINI_API_KEY)
+    """Send a message to Google Gemini and return the response. Raises on failure."""
+    from google import genai
 
-        # Build Gemini chat history
-        contents = []
-        for msg in history:
-            role = "user" if msg["role"] == "user" else "model"
-            contents.append(
-                genai.types.Content(role=role, parts=[genai.types.Part.from_text(text=msg["content"])])
-            )
-            
-        # Add the current message
+    client = genai.Client(api_key=cfg.GEMINI_API_KEY)
+
+    contents = []
+    for msg in history:
+        role = "user" if msg["role"] == "user" else "model"
         contents.append(
-            genai.types.Content(role="user", parts=[genai.types.Part.from_text(text=user_message)])
+            genai.types.Content(role=role, parts=[genai.types.Part.from_text(text=msg["content"])])
         )
+    contents.append(
+        genai.types.Content(role="user", parts=[genai.types.Part.from_text(text=user_message)])
+    )
 
-        response = client.models.generate_content(
-            model='gemini-1.5-flash',
-            contents=contents,
-            config=genai.types.GenerateContentConfig(
-                system_instruction=SYSTEM_PROMPT,
-            ),
-        )
-        return response.text.strip()
-
-    except ImportError:
-        logger.error("google-genai package not installed.")
-        return _fallback_response(user_message)
-    except Exception as exc:
-        logger.error("Gemini API error: %s", exc)
-        return _fallback_response(user_message)
+    response = client.models.generate_content(
+        model='gemini-1.5-flash',
+        contents=contents,
+        config=genai.types.GenerateContentConfig(
+            system_instruction=SYSTEM_PROMPT,
+        ),
+    )
+    return response.text.strip()
 
 
-def _chat_with_openai_compatible(history: list[dict], user_message: str, api_key: str, base_url: str = None, model_name: str = "gpt-4o-mini") -> str:
-    """Send a message to an OpenAI-compatible API and return the response."""
-    try:
-        from openai import OpenAI
-        client = OpenAI(api_key=api_key, base_url=base_url)
+def _chat_with_openai_compatible(
+    history: list[dict],
+    user_message: str,
+    api_key: str,
+    base_url: str = None,
+    model_name: str = "gpt-4o-mini",
+) -> str:
+    """Send a message to an OpenAI-compatible API and return the response. Raises on failure."""
+    from openai import OpenAI
 
-        messages = [{"role": "system", "content": SYSTEM_PROMPT}]
-        messages.extend(history)
-        messages.append({"role": "user", "content": user_message})
+    client = OpenAI(api_key=api_key, base_url=base_url)
 
-        response = client.chat.completions.create(
-            model=model_name,
-            messages=messages,
-            max_tokens=512,
-            temperature=0.7,
-        )
-        return response.choices[0].message.content.strip()
+    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+    messages.extend(history)
+    messages.append({"role": "user", "content": user_message})
 
-    except ImportError:
-        logger.error("openai package not installed.")
-        return _fallback_response(user_message)
-    except Exception as exc:
-        logger.error("OpenAI-compatible API error: %s", exc)
-        return _fallback_response(user_message)
+    response = client.chat.completions.create(
+        model=model_name,
+        messages=messages,
+        max_tokens=512,
+        temperature=0.7,
+    )
+    return response.choices[0].message.content.strip()
+
 
 def _chat_with_openai(history: list[dict], user_message: str) -> str:
     return _chat_with_openai_compatible(history, user_message, api_key=cfg.OPENAI_API_KEY)
 
+
 def _chat_with_groq(history: list[dict], user_message: str) -> str:
-    return _chat_with_openai_compatible(history, user_message, api_key=cfg.GROQ_API_KEY, base_url="https://api.groq.com/openai/v1", model_name="llama-3.1-8b-instant")
+    return _chat_with_openai_compatible(
+        history, user_message,
+        api_key=cfg.GROQ_API_KEY,
+        base_url="https://api.groq.com/openai/v1",
+        model_name="llama-3.1-8b-instant",
+    )
+
 
 def _chat_with_openrouter(history: list[dict], user_message: str) -> str:
-    return _chat_with_openai_compatible(history, user_message, api_key=cfg.OPENROUTER_API_KEY, base_url="https://openrouter.ai/api/v1", model_name="google/gemini-pro")
+    return _chat_with_openai_compatible(
+        history, user_message,
+        api_key=cfg.OPENROUTER_API_KEY,
+        base_url="https://openrouter.ai/api/v1",
+        model_name="google/gemini-pro",
+    )
 
 
 def _fallback_response(user_message: str) -> str:
@@ -155,12 +156,13 @@ def _fallback_response(user_message: str) -> str:
         return "Goodbye! Have a wonderful day. Come back anytime!"
 
     if "help" in tl:
-        return ("I can help you with: weather updates, news headlines, Wikipedia searches, "
-                "jokes, fun facts, unit and currency conversions, and general questions. "
-                "Note: AI chat requires a valid API key in your .env file.")
+        return (
+            "I can help you with: weather updates, news headlines, Wikipedia searches, "
+            "jokes, fun facts, unit and currency conversions, and general questions."
+        )
 
-    return ("I'd love to answer that, but my AI features require a valid API key. "
-            "Please add your GEMINI_API_KEY, GROQ_API_KEY or OPENAI_API_KEY to the .env file and restart the server.")
+    return "I'm here to help! Could you rephrase your question?"
+
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Public interface
@@ -169,36 +171,58 @@ def _fallback_response(user_message: str) -> str:
 def get_ai_response(user_message: str, session_id: str = "default") -> str:
     """
     Get an AI-generated response for the given user message.
-    Selects Gemini > Groq > OpenAI > OpenRouter > fallback based on configured keys.
+
+    Tries each configured AI backend in priority order:
+      document queries  → OpenRouter (first)
+      standard queries  → Groq → Gemini → OpenAI → OpenRouter
+
+    If a backend raises any exception it is silently skipped and the next
+    one is attempted.  The simple rule-based fallback is only used when
+    every configured API has failed.
     """
     history = conversation_store.get(session_id)
     conversation_store.add(session_id, "user", user_message)
 
-    response = ""
+    # Check if a document is present in conversation history
+    has_document = any(
+        "I have uploaded a document. Here is its content:" in msg.get("content", "")
+        for msg in history
+    )
 
-    # Check if a document is in the conversation history
-    has_document = any("I have uploaded a document. Here is its content:" in msg.get("content", "") for msg in history)
+    # Build ordered list of (name, callable) backends to try
+    backends: list[tuple[str, callable]] = []
 
-    # If it's a document query, prioritize OpenRouter
     if has_document and cfg.OPENROUTER_API_KEY:
-        response = _chat_with_openrouter(history, user_message)
+        backends.append(("OpenRouter", lambda h, m: _chat_with_openrouter(h, m)))
 
-    # Standard Priority: Groq -> Gemini -> OpenAI -> OpenRouter
-    if not response or "I'd love to answer that" in response:
-        if cfg.GROQ_API_KEY:
-            response = _chat_with_groq(history, user_message)
-    
-    if not response or "I'd love to answer that" in response:
-        if cfg.GEMINI_API_KEY:
-            response = _chat_with_gemini(history, user_message)
+    if cfg.GROQ_API_KEY:
+        backends.append(("Groq", lambda h, m: _chat_with_groq(h, m)))
 
-    if not response or "I'd love to answer that" in response:
-        if cfg.OPENAI_API_KEY:
-            response = _chat_with_openai(history, user_message)
-        elif cfg.OPENROUTER_API_KEY:
-            response = _chat_with_openrouter(history, user_message)
-        else:
-            response = _fallback_response(user_message)
+    if cfg.GEMINI_API_KEY:
+        backends.append(("Gemini", lambda h, m: _chat_with_gemini(h, m)))
+
+    if cfg.OPENAI_API_KEY:
+        backends.append(("OpenAI", lambda h, m: _chat_with_openai(h, m)))
+
+    if cfg.OPENROUTER_API_KEY and not (has_document and cfg.OPENROUTER_API_KEY):
+        backends.append(("OpenRouter", lambda h, m: _chat_with_openrouter(h, m)))
+
+    # Try each backend; skip silently on any error
+    response = ""
+    for name, fn in backends:
+        try:
+            result = fn(history, user_message)
+            if result:
+                response = result
+                logger.info("AI response from %s", name)
+                break
+        except Exception as exc:
+            logger.warning("Backend '%s' failed, trying next. Reason: %s", name, exc)
+
+    # All APIs failed — use rule-based fallback (no error shown to user)
+    if not response:
+        logger.error("All AI backends failed for session '%s'. Using rule-based fallback.", session_id)
+        response = _fallback_response(user_message)
 
     conversation_store.add(session_id, "assistant", response)
     return response
