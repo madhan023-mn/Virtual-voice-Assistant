@@ -471,6 +471,131 @@ def exit_interview():
     session.pop("resume_text", None)
     return jsonify({"success": True})
 
+@app.route("/api/generate/image", methods=["POST"])
+def generate_image():
+    """Generate an image from a text prompt using Gemini Imagen or fallback."""
+    if "user" not in session:
+        return jsonify({"error": "Unauthorized"}), 401
+    try:
+        data = request.get_json(force=True, silent=True) or {}
+        prompt = (data.get("prompt") or "").strip()
+        if not prompt:
+            return jsonify({"error": "Prompt is required."}), 400
+
+        # ── Try Gemini Imagen ─────────────────────────────────────────────────
+        if cfg.GEMINI_API_KEY:
+            try:
+                from google import genai as google_genai
+                from google.genai import types as genai_types
+                client = google_genai.Client(api_key=cfg.GEMINI_API_KEY)
+                response = client.models.generate_images(
+                    model="imagen-3.0-generate-002",
+                    prompt=prompt,
+                    config=genai_types.GenerateImagesConfig(number_of_images=1)
+                )
+                if response.generated_images:
+                    import base64
+                    img_bytes = response.generated_images[0].image.image_bytes
+                    b64 = base64.b64encode(img_bytes).decode("utf-8")
+                    return jsonify({"image_url": f"data:image/png;base64,{b64}", "prompt": prompt})
+            except Exception as img_err:
+                logger.warning("Gemini Imagen failed: %s", img_err)
+
+        # ── Try OpenRouter DALL-E ──────────────────────────────────────────────
+        if cfg.OPENROUTER_API_KEY:
+            try:
+                import requests as req_lib
+                headers = {
+                    "Authorization": f"Bearer {cfg.OPENROUTER_API_KEY}",
+                    "Content-Type": "application/json"
+                }
+                payload = {
+                    "model": "openai/dall-e-3",
+                    "prompt": prompt,
+                    "n": 1,
+                    "size": "1024x1024"
+                }
+                r = req_lib.post("https://openrouter.ai/api/v1/images/generations",
+                                  headers=headers, json=payload, timeout=60)
+                r.raise_for_status()
+                img_url = r.json()["data"][0]["url"]
+                return jsonify({"image_url": img_url, "prompt": prompt})
+            except Exception as or_err:
+                logger.warning("OpenRouter image generation failed: %s", or_err)
+
+        # ── Fallback: describe the image via AI ───────────────────────────────
+        ai_desc = get_ai_response(
+            f"Describe in vivid detail what an AI-generated image of '{prompt}' would look like. "
+            "Be creative and detailed as if painting a picture with words.", "img_gen"
+        )
+        return jsonify({
+            "text": f"🎨 Image generation requires Imagen API access. Here's what it would look like:\n\n{ai_desc}",
+            "prompt": prompt
+        })
+
+    except Exception as exc:
+        logger.exception("Error in /api/generate/image: %s", exc)
+        return jsonify({"error": "Image generation failed."}), 500
+
+
+@app.route("/api/generate/video", methods=["POST"])
+def generate_video():
+    """Generate a video from a text prompt using Gemini Veo or fallback description."""
+    if "user" not in session:
+        return jsonify({"error": "Unauthorized"}), 401
+    try:
+        data = request.get_json(force=True, silent=True) or {}
+        prompt = (data.get("prompt") or "").strip()
+        if not prompt:
+            return jsonify({"error": "Prompt is required."}), 400
+
+        # ── Try Gemini Veo ────────────────────────────────────────────────────
+        if cfg.GEMINI_API_KEY:
+            try:
+                from google import genai as google_genai
+                from google.genai import types as genai_types
+                import time
+                client = google_genai.Client(api_key=cfg.GEMINI_API_KEY)
+                operation = client.models.generate_videos(
+                    model="veo-2.0-generate-001",
+                    prompt=prompt,
+                    config=genai_types.GenerateVideosConfig(
+                        number_of_videos=1,
+                        duration_seconds=5,
+                        enhance_prompt=True,
+                    )
+                )
+                # Poll for completion (max 60s)
+                for _ in range(12):
+                    if operation.done:
+                        break
+                    time.sleep(5)
+                    operation = client.operations.get(operation)
+
+                if operation.done and operation.response and operation.response.generated_videos:
+                    video = operation.response.generated_videos[0]
+                    video_bytes = client.files.download(file=video.video)
+                    import base64
+                    b64 = base64.b64encode(video_bytes).decode("utf-8")
+                    return jsonify({"video_url": f"data:video/mp4;base64,{b64}", "prompt": prompt})
+            except Exception as vid_err:
+                logger.warning("Gemini Veo failed: %s", vid_err)
+
+        # ── Fallback: AI storyboard description ───────────────────────────────
+        ai_desc = get_ai_response(
+            f"Create a detailed storyboard / scene description for a short video about: '{prompt}'. "
+            "Describe each scene with timestamps, camera angles, visual elements, and mood.", "vid_gen"
+        )
+        return jsonify({
+            "text": f"🎬 Video generation requires Veo API access. Here's a storyboard for '{prompt}':\n\n{ai_desc}",
+            "prompt": prompt
+        })
+
+    except Exception as exc:
+        logger.exception("Error in /api/generate/video: %s", exc)
+        return jsonify({"error": "Video generation failed."}), 500
+
+
 @app.route("/api/admin/block", methods=["POST"])
 def admin_block():
     if session.get("user") != 'developer': return jsonify({"error": "Unauthorized"}), 403

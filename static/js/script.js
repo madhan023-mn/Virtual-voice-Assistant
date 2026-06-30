@@ -1,6 +1,7 @@
 /**
  * script.js — ARIA Virtual Voice Assistant
- * Handles: Web Speech API, SpeechSynthesis, chat API, calculator, UI interactions
+ * Handles: Web Speech API, SpeechSynthesis, chat API, calculator, UI interactions,
+ *          Image Generation, Video Generation, Markdown rendering, Copy-to-clipboard
  */
 
 'use strict';
@@ -21,6 +22,7 @@ const state = {
   calcExpression: '',
   calcValue: '0',
   selectedLang: 'English',   // default response language
+  isInterviewMode: false,
 };
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -135,6 +137,12 @@ const DOM = {
   interviewBanner:  () => document.getElementById('interview-banner'),
   mockInterviewUi:  () => document.getElementById('mock-interview-ui'),
   interviewQuestion:() => document.getElementById('interview-current-question'),
+  imageGenModal:    () => document.getElementById('image-gen-modal'),
+  videoGenModal:    () => document.getElementById('video-gen-modal'),
+  imageGenPrompt:   () => document.getElementById('image-gen-prompt'),
+  videoGenPrompt:   () => document.getElementById('video-gen-prompt'),
+  aiCoderModal:     () => document.getElementById('ai-coder-modal'),
+  aiCoderPrompt:    () => document.getElementById('ai-coder-prompt'),
 };
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -157,23 +165,95 @@ function escapeHtml(str) {
     .replace(/"/g, '&quot;');
 }
 
+/**
+ * Enhanced markdown-style formatter with:
+ * - Fenced code blocks with copy button
+ * - Inline code
+ * - Bold & italic
+ * - Numbered and bulleted lists
+ * - Line breaks
+ */
 function formatMessageText(text) {
-  // Format numbered lists as styled news list
-  if (/^\d+\.\s/.test(text.trim())) {
-    const lines = text.trim().split('\n');
-    const header = lines[0].match(/^\d+\./) ? null : lines[0];
-    const items = header ? lines.slice(1) : lines;
-    const listItems = items
-      .filter(l => l.trim())
-      .map(l => `<li>${escapeHtml(l.replace(/^\d+\.\s/, ''))}</li>`)
-      .join('');
-    return (header ? `<p>${escapeHtml(header)}</p>` : '') + `<ul class="news-list">${listItems}</ul>`;
+  // ── Fenced code blocks ─────────────────────────────────
+  text = text.replace(/```(\w*)\n?([\s\S]*?)```/g, (_, lang, code) => {
+    const escaped = escapeHtml(code.trim());
+    const langLabel = lang ? `<span class="code-lang-label">${escapeHtml(lang)}</span>` : '';
+    return `<div class="code-block-wrapper">
+      <div class="code-block-header">${langLabel}<button class="code-copy-btn" onclick="copyCode(this)" title="Copy code"><span class="material-symbols-rounded" style="font-size:14px">content_copy</span></button></div>
+      <pre class="code-block"><code>${escaped}</code></pre>
+    </div>`;
+  });
+
+  // ── Numbered list ───────────────────────────────────────
+  if (/^\d+\.\s/m.test(text)) {
+    const lines = text.split('\n');
+    let inList = false;
+    let result = '';
+    for (const line of lines) {
+      const match = line.match(/^(\d+)\.\s+(.*)/);
+      if (match) {
+        if (!inList) { result += '<ol class="msg-list">'; inList = true; }
+        result += `<li>${formatInline(match[2])}</li>`;
+      } else {
+        if (inList) { result += '</ol>'; inList = false; }
+        result += line ? `<p>${formatInline(line)}</p>` : '<br>';
+      }
+    }
+    if (inList) result += '</ol>';
+    return result;
   }
-  // Inline code
-  let formatted = escapeHtml(text).replace(/`([^`]+)`/g, '<code>$1</code>');
-  // Line breaks
-  formatted = formatted.replace(/\n/g, '<br>');
-  return formatted;
+
+  // ── Bullet list ─────────────────────────────────────────
+  if (/^[-*•]\s/m.test(text)) {
+    const lines = text.split('\n');
+    let inList = false;
+    let result = '';
+    for (const line of lines) {
+      const match = line.match(/^[-*•]\s+(.*)/);
+      if (match) {
+        if (!inList) { result += '<ul class="msg-list">'; inList = true; }
+        result += `<li>${formatInline(match[1])}</li>`;
+      } else {
+        if (inList) { result += '</ul>'; inList = false; }
+        result += line ? `<p>${formatInline(line)}</p>` : '<br>';
+      }
+    }
+    if (inList) result += '</ul>';
+    return result;
+  }
+
+  // ── Default paragraph / inline formatting ────────────────
+  return text.split('\n').map(line => line ? `<p>${formatInline(line)}</p>` : '<br>').join('');
+}
+
+function formatInline(text) {
+  return escapeHtml(text)
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g,     '<em>$1</em>')
+    .replace(/_(.+?)_/g,       '<em>$1</em>')
+    .replace(/`([^`]+)`/g,     '<code>$1</code>');
+}
+
+function copyCode(btn) {
+  const code = btn.closest('.code-block-wrapper').querySelector('code');
+  navigator.clipboard.writeText(code.textContent).then(() => {
+    btn.innerHTML = '<span class="material-symbols-rounded" style="font-size:14px">check</span>';
+    setTimeout(() => {
+      btn.innerHTML = '<span class="material-symbols-rounded" style="font-size:14px">content_copy</span>';
+    }, 2000);
+  });
+}
+
+function copyMessage(btn) {
+  const bubble = btn.closest('.msg-content').querySelector('.msg-bubble');
+  const text = bubble ? bubble.innerText : '';
+  navigator.clipboard.writeText(text).then(() => {
+    btn.innerHTML = '<span class="material-symbols-rounded" style="font-size:14px">check</span>';
+    showToast('Copied to clipboard!', 'success', 1500);
+    setTimeout(() => {
+      btn.innerHTML = '<span class="material-symbols-rounded" style="font-size:14px">content_copy</span>';
+    }, 2000);
+  });
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -199,7 +279,6 @@ function showToast(message, type = 'info', duration = 3500) {
 
 function speak(text) {
   if (!state.speechEnabled || !state.synthesis) return;
-  // Strip HTML tags for speech
   const plainText = text.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
   if (!plainText) return;
 
@@ -209,7 +288,6 @@ function speak(text) {
   utter.pitch = 1.0;
   utter.volume = 1.0;
 
-  // Pick a good voice
   const voices = state.synthesis.getVoices();
   const preferred = voices.find(v =>
     v.name.includes('Google') && v.lang.startsWith('en')
@@ -227,7 +305,7 @@ function toggleSpeech() {
   state.speechEnabled = !state.speechEnabled;
   const btn = DOM.speechToggle();
   if (btn) {
-    btn.textContent = state.speechEnabled ? '🔊' : '🔇';
+    btn.querySelector('span').textContent = state.speechEnabled ? 'volume_up' : 'volume_off';
     btn.title = state.speechEnabled ? 'Mute voice' : 'Unmute voice';
   }
   showToast(state.speechEnabled ? 'Voice output enabled' : 'Voice output muted', 'info', 2000);
@@ -283,7 +361,7 @@ function initSpeechRecognition() {
     DOM.micBtn().classList.remove('listening');
     const vs = DOM.voiceStatus();
     if (vs) vs.classList.remove('active');
-    DOM.messageInput().placeholder = 'Type a message or press the mic to speak...';
+    DOM.messageInput().placeholder = "Ask ARIA anything, or try 'generate image of a sunset'...";
 
     const finalText = DOM.messageInput().value.trim();
     if (finalText) {
@@ -296,14 +374,14 @@ function initSpeechRecognition() {
     DOM.micBtn().classList.remove('listening');
     const vs = DOM.voiceStatus();
     if (vs) vs.classList.remove('active');
-    DOM.messageInput().placeholder = 'Type a message or press the mic to speak...';
+    DOM.messageInput().placeholder = "Ask ARIA anything, or try 'generate image of a sunset'...";
 
     const errorMessages = {
-      'no-speech':         'No speech detected. Try again.',
-      'audio-capture':     'Microphone not accessible.',
-      'not-allowed':       'Microphone permission denied.',
-      'network':           'Network error during recognition.',
-      'aborted':           null, // silently ignore
+      'no-speech':     'No speech detected. Try again.',
+      'audio-capture': 'Microphone not accessible.',
+      'not-allowed':   'Microphone permission denied.',
+      'network':       'Network error during recognition.',
+      'aborted':       null,
     };
     const msg = errorMessages[event.error];
     if (msg) showToast(msg, 'error');
@@ -354,6 +432,12 @@ function appendMessage(role, text, extraHtml = '') {
       msgDiv.classList.add('interview-mode-msg');
   }
   msgDiv.className = `message ${role}`;
+
+  const copyBtn = isAi ? `
+    <button class="msg-copy-btn" onclick="copyMessage(this)" title="Copy message" aria-label="Copy message">
+      <span class="material-symbols-rounded" style="font-size:14px">content_copy</span>
+    </button>` : '';
+
   msgDiv.innerHTML = `
     <div class="msg-avatar ${avatarClass}">${avatarIcon}</div>
     <div class="msg-content">
@@ -362,6 +446,7 @@ function appendMessage(role, text, extraHtml = '') {
         <span>${isAi ? 'ARIA' : 'You'}</span>
         <span>·</span>
         <span>${time}</span>
+        ${copyBtn}
       </div>
     </div>
   `;
@@ -369,11 +454,64 @@ function appendMessage(role, text, extraHtml = '') {
   DOM.messagesInner().appendChild(msgDiv);
   scrollToBottom();
 
-  // Record in history
   state.chatHistory.push({ role, text, time });
   saveChatHistory();
 
   return msgDiv;
+}
+
+/** Append a generated image result bubble */
+function appendImageMessage(prompt, imageUrl) {
+  hideWelcomeScreen();
+  const time = formatTime();
+  const msgDiv = document.createElement('div');
+  msgDiv.className = 'message ai';
+  msgDiv.innerHTML = `
+    <div class="msg-avatar ai"><span class="material-symbols-rounded">auto_awesome</span></div>
+    <div class="msg-content">
+      <div class="msg-bubble gen-image-bubble">
+        <p class="gen-caption">🖼️ Generated: <em>${escapeHtml(prompt)}</em></p>
+        <img src="${imageUrl}" alt="${escapeHtml(prompt)}" class="gen-image" loading="lazy" />
+        <div class="gen-image-actions">
+          <a href="${imageUrl}" download="aria-generated.png" class="url-action-btn">
+            <span class="material-symbols-rounded" style="font-size:14px">download</span> Download
+          </a>
+        </div>
+      </div>
+      <div class="msg-meta"><span>ARIA · Image Gen</span><span>·</span><span>${time}</span></div>
+    </div>
+  `;
+  DOM.messagesInner().appendChild(msgDiv);
+  scrollToBottom();
+  state.chatHistory.push({ role: 'ai', text: `[Generated image: ${prompt}]`, time });
+  saveChatHistory();
+}
+
+/** Append a generated video result bubble */
+function appendVideoMessage(prompt, videoUrl) {
+  hideWelcomeScreen();
+  const time = formatTime();
+  const msgDiv = document.createElement('div');
+  msgDiv.className = 'message ai';
+  msgDiv.innerHTML = `
+    <div class="msg-avatar ai"><span class="material-symbols-rounded">videocam</span></div>
+    <div class="msg-content">
+      <div class="msg-bubble gen-video-bubble">
+        <p class="gen-caption">🎬 Generated: <em>${escapeHtml(prompt)}</em></p>
+        <video src="${videoUrl}" class="gen-video" controls autoplay muted loop></video>
+        <div class="gen-image-actions">
+          <a href="${videoUrl}" download="aria-generated.mp4" class="url-action-btn">
+            <span class="material-symbols-rounded" style="font-size:14px">download</span> Download
+          </a>
+        </div>
+      </div>
+      <div class="msg-meta"><span>ARIA · Video Gen</span><span>·</span><span>${time}</span></div>
+    </div>
+  `;
+  DOM.messagesInner().appendChild(msgDiv);
+  scrollToBottom();
+  state.chatHistory.push({ role: 'ai', text: `[Generated video: ${prompt}]`, time });
+  saveChatHistory();
 }
 
 function showTypingIndicator() {
@@ -405,6 +543,39 @@ function scrollToBottom() {
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
+// Image Generation Prompts (natural language detection)
+// ──────────────────────────────────────────────────────────────────────────────
+
+const IMAGE_TRIGGERS = [
+  /^generate (?:an? )?image (?:of|about|showing|depicting|with)?\s*(.+)/i,
+  /^create (?:an? )?image (?:of|about|showing)?\s*(.+)/i,
+  /^draw (?:me )?(?:an? )?\s*(.+)/i,
+  /^make (?:an? )?image (?:of|about)?\s*(.+)/i,
+  /^show me (?:an? )?(?:picture|image|photo) (?:of|about)\s*(.+)/i,
+  /^picture of\s*(.+)/i,
+  /^paint\s+(.+)/i,
+];
+
+const VIDEO_TRIGGERS = [
+  /^generate (?:a )?video (?:of|about|showing)?\s*(.+)/i,
+  /^create (?:a )?video (?:of|about)?\s*(.+)/i,
+  /^make (?:a )?video (?:of|about)?\s*(.+)/i,
+  /^animate\s+(.+)/i,
+];
+
+function detectMediaIntent(text) {
+  for (const rx of IMAGE_TRIGGERS) {
+    const m = text.match(rx);
+    if (m) return { type: 'image', prompt: m[1].trim() };
+  }
+  for (const rx of VIDEO_TRIGGERS) {
+    const m = text.match(rx);
+    if (m) return { type: 'video', prompt: m[1].trim() };
+  }
+  return null;
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
 // API Communication
 // ──────────────────────────────────────────────────────────────────────────────
 
@@ -412,15 +583,26 @@ async function sendMessage(messageText) {
   const text = (messageText || DOM.messageInput().value).trim();
   if (!text || state.isLoading) return;
 
+  // ── Check for image/video intent ──────────────────────────────────────────
+  const mediaIntent = detectMediaIntent(text);
+  if (mediaIntent) {
+    DOM.messageInput().value = '';
+    autoResizeTextarea();
+    appendMessage('user', text);
+    if (mediaIntent.type === 'image') {
+      await generateImage(mediaIntent.prompt);
+    } else {
+      await generateVideo(mediaIntent.prompt);
+    }
+    return;
+  }
+
   state.isLoading = true;
   DOM.messageInput().value = '';
   autoResizeTextarea();
   DOM.sendBtn().disabled = true;
 
-  // Show user message
   appendMessage('user', text);
-
-  // Show typing indicator
   showTypingIndicator();
 
   try {
@@ -448,14 +630,12 @@ async function sendMessage(messageText) {
       const responseText = data.text || 'I received your message.';
       let extraHtml = '';
 
-      // Handle URL action
       if (data.action === 'open_url' && data.url) {
         extraHtml = `
           <br>
           <a class="url-action-btn" href="${escapeHtml(data.url)}" target="_blank" rel="noopener noreferrer">
             🔗 Open Link
           </a>`;
-        // Auto-open in new tab
         setTimeout(() => window.open(data.url, '_blank', 'noopener,noreferrer'), 300);
       } else if (data.action === 'open_calculator') {
         extraHtml = '';
@@ -481,6 +661,196 @@ async function sendMessage(messageText) {
     DOM.sendBtn().disabled = false;
     DOM.messageInput().focus();
   }
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Image Generation
+// ──────────────────────────────────────────────────────────────────────────────
+
+async function generateImage(prompt) {
+  if (!prompt || state.isLoading) return;
+  state.isLoading = true;
+  DOM.sendBtn().disabled = true;
+  showTypingIndicator();
+
+  // Update typing indicator to show image gen context
+  const indicator = document.getElementById('typing-indicator');
+  if (indicator) {
+    const bubble = indicator.querySelector('.typing-bubble');
+    if (bubble) bubble.innerHTML += '<span style="margin-left:8px;font-size:0.75rem;color:var(--text-muted)">Generating image...</span>';
+  }
+
+  try {
+    const response = await fetch('/api/generate/image', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt }),
+    });
+    const data = await response.json();
+    removeTypingIndicator();
+
+    if (data.image_url) {
+      appendImageMessage(prompt, data.image_url);
+    } else if (data.text) {
+      appendMessage('ai', data.text);
+    } else {
+      appendMessage('ai', '⚠️ ' + (data.error || 'Image generation failed.'));
+    }
+  } catch (err) {
+    removeTypingIndicator();
+    appendMessage('ai', '⚠️ Image generation failed. Please try again.');
+    showToast('Image generation error.', 'error');
+  } finally {
+    state.isLoading = false;
+    DOM.sendBtn().disabled = false;
+    DOM.messageInput().focus();
+  }
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Video Generation
+// ──────────────────────────────────────────────────────────────────────────────
+
+async function generateVideo(prompt) {
+  if (!prompt || state.isLoading) return;
+  state.isLoading = true;
+  DOM.sendBtn().disabled = true;
+  showTypingIndicator();
+
+  const indicator = document.getElementById('typing-indicator');
+  if (indicator) {
+    const bubble = indicator.querySelector('.typing-bubble');
+    if (bubble) bubble.innerHTML += '<span style="margin-left:8px;font-size:0.75rem;color:var(--text-muted)">Generating video... (may take up to 60s)</span>';
+  }
+
+  showToast('Generating video — this may take a moment...', 'info', 8000);
+
+  try {
+    const response = await fetch('/api/generate/video', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt }),
+    });
+    const data = await response.json();
+    removeTypingIndicator();
+
+    if (data.video_url) {
+      appendVideoMessage(prompt, data.video_url);
+    } else if (data.text) {
+      appendMessage('ai', data.text);
+    } else {
+      appendMessage('ai', '⚠️ ' + (data.error || 'Video generation failed.'));
+    }
+  } catch (err) {
+    removeTypingIndicator();
+    appendMessage('ai', '⚠️ Video generation failed. Please try again.');
+    showToast('Video generation error.', 'error');
+  } finally {
+    state.isLoading = false;
+    DOM.sendBtn().disabled = false;
+    DOM.messageInput().focus();
+  }
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// AI Coder Modal
+// ──────────────────────────────────────────────────────────────────────────────
+
+function openAiCoderModal() {
+  const modal = DOM.aiCoderModal();
+  if (modal) {
+    modal.classList.add('open');
+    setTimeout(() => DOM.aiCoderPrompt() && DOM.aiCoderPrompt().focus(), 100);
+  }
+}
+
+function closeAiCoderModal() {
+  const modal = DOM.aiCoderModal();
+  if (modal) modal.classList.remove('open');
+}
+
+function setCoderPrompt(text) {
+  const ta = DOM.aiCoderPrompt();
+  if (ta) ta.value = text;
+}
+
+function submitAiCoder() {
+  const prompt = (DOM.aiCoderPrompt()?.value || '').trim();
+  if (!prompt) { showToast('Please enter code or a prompt.', 'error', 2000); return; }
+
+  closeAiCoderModal();
+  // Instruct the assistant to act as a coding assistant explicitly
+  const codingPrompt = `You are an expert AI Coding Assistant. Please handle the following request:\n\n${prompt}`;
+  
+  DOM.messageInput().value = codingPrompt;
+  autoResizeTextarea();
+  sendMessage(codingPrompt);
+  
+  if (DOM.aiCoderPrompt()) DOM.aiCoderPrompt().value = '';
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Image Gen Modal
+// ──────────────────────────────────────────────────────────────────────────────
+
+function openImageGenModal() {
+  const modal = DOM.imageGenModal();
+  if (modal) {
+    modal.classList.add('open');
+    setTimeout(() => DOM.imageGenPrompt() && DOM.imageGenPrompt().focus(), 100);
+  }
+}
+
+function closeImageGenModal() {
+  const modal = DOM.imageGenModal();
+  if (modal) modal.classList.remove('open');
+}
+
+function setImagePrompt(text) {
+  const ta = DOM.imageGenPrompt();
+  if (ta) ta.value = text;
+}
+
+async function submitImageGen() {
+  const prompt = (DOM.imageGenPrompt()?.value || '').trim();
+  if (!prompt) { showToast('Please enter a prompt.', 'error', 2000); return; }
+
+  closeImageGenModal();
+  appendMessage('user', `Generate image: ${prompt}`);
+  await generateImage(prompt);
+  if (DOM.imageGenPrompt()) DOM.imageGenPrompt().value = '';
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Video Gen Modal
+// ──────────────────────────────────────────────────────────────────────────────
+
+function openVideoGenModal() {
+  const modal = DOM.videoGenModal();
+  if (modal) {
+    modal.classList.add('open');
+    setTimeout(() => DOM.videoGenPrompt() && DOM.videoGenPrompt().focus(), 100);
+  }
+}
+
+function closeVideoGenModal() {
+  const modal = DOM.videoGenModal();
+  if (modal) modal.classList.remove('open');
+}
+
+function setVideoPrompt(text) {
+  const ta = DOM.videoGenPrompt();
+  if (ta) ta.value = text;
+}
+
+async function submitVideoGen() {
+  const prompt = (DOM.videoGenPrompt()?.value || '').trim();
+  if (!prompt) { showToast('Please enter a prompt.', 'error', 2000); return; }
+
+  closeVideoGenModal();
+  appendMessage('user', `Generate video: ${prompt}`);
+  await generateVideo(prompt);
+  if (DOM.videoGenPrompt()) DOM.videoGenPrompt().value = '';
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -511,11 +881,16 @@ function restoreChatFromHistory() {
     const msgDiv = document.createElement('div');
     msgDiv.className = `message ${role}`;
     const avatarIcon = role === 'ai' ? '<span class="material-symbols-rounded">smart_toy</span>' : '<span class="material-symbols-rounded">person</span>';
+    const isAi = role === 'ai';
+    const copyBtn = isAi ? `
+      <button class="msg-copy-btn" onclick="copyMessage(this)" title="Copy message">
+        <span class="material-symbols-rounded" style="font-size:14px">content_copy</span>
+      </button>` : '';
     msgDiv.innerHTML = `
       <div class="msg-avatar ${role}">${avatarIcon}</div>
       <div class="msg-content">
         <div class="msg-bubble">${formatMessageText(text)}</div>
-        <div class="msg-meta"><span>${role === 'ai' ? 'ARIA' : 'You'}</span></div>
+        <div class="msg-meta"><span>${role === 'ai' ? 'ARIA' : 'You'}</span>${copyBtn}</div>
       </div>
     `;
     DOM.messagesInner().appendChild(msgDiv);
@@ -527,10 +902,10 @@ function restoreChatFromHistory() {
 function updateHistoryPanel() {
   const list = DOM.chatHistoryList();
   if (!list) return;
-  const userMessages = state.chatHistory.filter(m => m.role === 'user').slice(-8).reverse();
-  
+  const userMessages = state.chatHistory.filter(m => m.role === 'user').slice(-10).reverse();
+
   window._currentUserMessages = userMessages;
-  
+
   list.innerHTML = userMessages.length === 0
     ? '<div style="padding:8px 12px;font-size:0.75rem;color:var(--text-muted)">No history yet</div>'
     : userMessages.map((m, idx) => `
@@ -542,11 +917,14 @@ function updateHistoryPanel() {
       `).join('');
 }
 
+// Alias for backwards compat
+const renderChatHistory = updateHistoryPanel;
+
 function deleteHistoryItem(event, index) {
   event.stopPropagation();
   if (!window._currentUserMessages || !window._currentUserMessages[index]) return;
   const item = window._currentUserMessages[index];
-  
+
   const originalIndex = state.chatHistory.findIndex(m => m.text === item.text && m.time === item.time);
   if (originalIndex !== -1) {
     if (originalIndex + 1 < state.chatHistory.length && state.chatHistory[originalIndex + 1].role === 'ai') {
@@ -555,7 +933,7 @@ function deleteHistoryItem(event, index) {
       state.chatHistory.splice(originalIndex, 1);
     }
   }
-  
+
   saveChatHistory();
   renderChatHistory();
 }
@@ -568,7 +946,6 @@ function loadHistoryItem(text) {
 }
 
 async function newChat() {
-  // Clear backend session
   try {
     await fetch('/api/clear', {
       method: 'POST',
@@ -581,17 +958,33 @@ async function newChat() {
   state.chatHistory = [];
   localStorage.removeItem('aria_history');
 
-  // Reset UI
   const inner = DOM.messagesInner();
   inner.innerHTML = '';
 
-  // Show welcome screen again
-  const ws = DOM.welcomeScreen();
-  if (ws) {
-    ws.classList.remove('hidden');
-    ws.style.animation = '';
-  }
+  // Re-add welcome screen skeleton
+  inner.innerHTML = `
+    <div class="welcome-screen" id="welcome-screen" aria-label="Welcome">
+      <div class="welcome-avatar">
+        <div class="avatar-pulse" aria-hidden="true"></div>
+        <div class="avatar-ring" aria-hidden="true"></div>
+        <div class="avatar-image" aria-hidden="true"><span class="material-symbols-rounded" style="font-size: 48px; color: var(--primary-light);">smart_toy</span></div>
+      </div>
+      <h2>Hi, I'm ARIA</h2>
+      <p>Start a new conversation below!</p>
+    </div>
+    <div id="mock-interview-ui" style="display: none;" class="glass-panel interview-panel">
+      <div class="interview-avatar">
+        <div class="avatar-pulse"></div>
+        <span class="material-symbols-rounded ai-avatar-icon" style="font-size: 64px; color: #fff;">smart_toy</span>
+      </div>
+      <div class="interview-text-content">
+        <h3 id="interview-question-heading">ARIA - Interviewer</h3>
+        <p id="interview-current-question">Please introduce yourself.</p>
+      </div>
+    </div>
+  `;
 
+  updateHistoryPanel();
   showToast('New conversation started', 'success', 2000);
 }
 
@@ -627,7 +1020,6 @@ function calcInput(val) {
     } else {
       state.calcValue = '0';
     }
-    // Also remove from expression
     if (state.calcExpression.length > 0) {
       state.calcExpression = state.calcExpression.slice(0, -1);
     }
@@ -662,7 +1054,6 @@ function calcInput(val) {
       state.calcExpression += '.';
     }
   } else {
-    // Digit
     if (state.calcValue === '0' || state.calcValue === 'Error') {
       state.calcValue = val;
     } else {
@@ -744,26 +1135,25 @@ async function checkHealth() {
 
 function setupKeyboardShortcuts() {
   document.addEventListener('keydown', (e) => {
-    // Escape closes calculator
     if (e.key === 'Escape') {
       closeCalculator();
       closeSidebar();
+      closeImageGenModal();
+      closeVideoGenModal();
+      closeAiCoderModal();
     }
 
-    // Ctrl+K focuses input
     if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
       e.preventDefault();
       DOM.messageInput().focus();
     }
 
-    // Ctrl+/ toggles sidebar
     if ((e.ctrlKey || e.metaKey) && e.key === '/') {
       e.preventDefault();
       toggleSidebar();
     }
   });
 
-  // Calculator keyboard support
   document.addEventListener('keydown', (e) => {
     if (!DOM.calcModal().classList.contains('open')) return;
     const keyMap = {
@@ -773,6 +1163,28 @@ function setupKeyboardShortcuts() {
     };
     const mapped = keyMap[e.key];
     if (mapped) { e.preventDefault(); calcInput(mapped); }
+  });
+
+  // Close gen modals on backdrop click
+  document.getElementById('image-gen-modal')?.addEventListener('click', (e) => {
+    if (e.target === document.getElementById('image-gen-modal')) closeImageGenModal();
+  });
+  document.getElementById('video-gen-modal')?.addEventListener('click', (e) => {
+    if (e.target === document.getElementById('video-gen-modal')) closeVideoGenModal();
+  });
+  document.getElementById('ai-coder-modal')?.addEventListener('click', (e) => {
+    if (e.target === document.getElementById('ai-coder-modal')) closeAiCoderModal();
+  });
+
+  // Submit on Ctrl+Enter in textarea
+  document.getElementById('image-gen-prompt')?.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); submitImageGen(); }
+  });
+  document.getElementById('video-gen-prompt')?.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); submitVideoGen(); }
+  });
+  document.getElementById('ai-coder-prompt')?.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); submitAiCoder(); }
   });
 }
 
@@ -785,17 +1197,17 @@ async function handleFileUpload(file, endpoint) {
   const formData = new FormData();
   formData.append('file', file);
   formData.append('session_id', state.sessionId);
-  
+
   state.isLoading = true;
   DOM.sendBtn().disabled = true;
   appendMessage('user', `[Uploaded file: ${file.name}]`);
   showTypingIndicator();
-  
+
   try {
     const res = await fetch(endpoint, { method: 'POST', body: formData });
     const data = await res.json();
     removeTypingIndicator();
-    
+
     if (data.error) {
         appendMessage('ai', '⚠️ ' + data.error);
         showToast(data.error, 'error');
@@ -815,7 +1227,7 @@ async function handleFileUpload(file, endpoint) {
 async function startInterviewWithResume(file) {
   if (!file) return;
   showToast('Parsing resume and starting interview...', 'info');
-  
+
   const reader = new FileReader();
   reader.onload = async (e) => {
       const text = e.target.result;
@@ -835,11 +1247,11 @@ async function startInterviewWithResume(file) {
               DOM.mockInterviewUi().style.display = 'flex';
               Array.from(DOM.messagesInner().children).forEach(c => {
                   if (c.id !== 'mock-interview-ui' && c.id !== 'welcome-screen') {
-                      c.style.display = 'none'; // hide old chats
+                      c.style.display = 'none';
                   }
               });
               hideWelcomeScreen();
-              
+
               DOM.interviewQuestion().textContent = data.text;
               appendMessage('ai', data.text);
               speak(data.text);
@@ -862,26 +1274,24 @@ window.exitInterview = async function() {
     DOM.mockInterviewUi().style.display = 'none';
     Array.from(DOM.messagesInner().children).forEach(c => {
         if (c.id !== 'mock-interview-ui') {
-            c.style.display = 'flex'; 
+            c.style.display = 'flex';
         }
     });
     const ws = DOM.welcomeScreen();
-    if(ws) ws.style.display = 'none'; // Keep welcome screen hidden if there are chats
+    if(ws) ws.style.display = 'none';
     showToast('Exited interview mode', 'info');
-}
+};
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Event Listeners
 // ──────────────────────────────────────────────────────────────────────────────
 
 function setupEventListeners() {
-  // Form submit
   DOM.inputForm().addEventListener('submit', (e) => {
     e.preventDefault();
     sendMessage();
   });
 
-  // Textarea Enter key
   DOM.messageInput().addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -889,37 +1299,24 @@ function setupEventListeners() {
     }
   });
 
-  // Textarea resize
   DOM.messageInput().addEventListener('input', autoResizeTextarea);
 
-  // Mic button
   DOM.micBtn().addEventListener('click', toggleMic);
-
-  // Send button
   DOM.sendBtn().addEventListener('click', () => sendMessage());
 
-  // Sidebar toggle
   DOM.sidebarToggle()?.addEventListener('click', toggleSidebar);
-
-  // Overlay close
   DOM.sidebarOverlay()?.addEventListener('click', closeSidebar);
 
-  // New chat
   DOM.newChatBtn()?.addEventListener('click', newChat);
-
-  // Clear button (topbar)
   DOM.clearBtn()?.addEventListener('click', newChat);
 
-  // Speech toggle
   DOM.speechToggle()?.addEventListener('click', toggleSpeech);
 
-  // Calculator modal close
   DOM.calcClose()?.addEventListener('click', closeCalculator);
   DOM.calcModal()?.addEventListener('click', (e) => {
     if (e.target === DOM.calcModal()) closeCalculator();
   });
 
-  // File Uploads
   DOM.fileInput()?.addEventListener('change', (e) => handleFileUpload(e.target.files[0], '/api/upload/image'));
   DOM.docInput()?.addEventListener('change', (e) => handleFileUpload(e.target.files[0], '/api/upload/document'));
   DOM.resumeInput()?.addEventListener('change', (e) => startInterviewWithResume(e.target.files[0]));
@@ -938,12 +1335,10 @@ function init() {
   buildLangOptions();
   updateLangBtn();
 
-  // Voices may load asynchronously
   if (window.speechSynthesis) {
     window.speechSynthesis.onvoiceschanged = () => {};
   }
 
-  // Focus input
   setTimeout(() => DOM.messageInput().focus(), 200);
 
   console.log('🤖 ARIA Virtual Voice Assistant initialized');
@@ -951,16 +1346,36 @@ function init() {
 }
 
 // Expose globals for inline event handlers
-window.handleSuggestion = handleSuggestion;
-window.calcInput = calcInput;
-window.openCalculator = openCalculator;
-window.closeCalculator = closeCalculator;
-window.loadHistoryItem = loadHistoryItem;
-window.toggleSpeech = toggleSpeech;
+window.handleSuggestion   = handleSuggestion;
+window.calcInput          = calcInput;
+window.openCalculator     = openCalculator;
+window.closeCalculator    = closeCalculator;
+window.loadHistoryItem    = loadHistoryItem;
+window.deleteHistoryItem  = deleteHistoryItem;
+window.toggleSpeech       = toggleSpeech;
 window.toggleLangDropdown = toggleLangDropdown;
-window.closeLangDropdown = closeLangDropdown;
-window.selectLang = selectLang;
-window.setCustomLang = setCustomLang;
-window.exitInterview = exitInterview;
+window.closeLangDropdown  = closeLangDropdown;
+window.selectLang         = selectLang;
+window.setCustomLang      = setCustomLang;
+window.exitInterview      = exitInterview;
+window.openImageGenModal  = openImageGenModal;
+window.closeImageGenModal = closeImageGenModal;
+window.setImagePrompt     = setImagePrompt;
+window.submitImageGen     = submitImageGen;
+window.openVideoGenModal  = openVideoGenModal;
+window.closeVideoGenModal = closeVideoGenModal;
+window.setVideoPrompt     = setVideoPrompt;
+window.submitVideoGen     = submitVideoGen;
+window.openAiCoderModal   = openAiCoderModal;
+window.closeAiCoderModal  = closeAiCoderModal;
+window.setCoderPrompt     = setCoderPrompt;
+window.submitAiCoder      = submitAiCoder;
+window.generateImage      = generateImage;
+window.generateVideo      = generateVideo;
+window.copyCode           = copyCode;
+window.copyMessage        = copyMessage;
+window.newChat            = newChat;
+window.toggleMic          = toggleMic;
+window.toggleSidebar      = toggleSidebar;
 
 document.addEventListener('DOMContentLoaded', init);

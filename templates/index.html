@@ -62,6 +62,18 @@
         <span class="nav-icon"><span class="material-symbols-rounded">work</span></span>
         <span>Mock Interview</span>
       </div>
+      <div class="nav-item" id="nav-image-gen" onclick="openImageGenModal()" role="button" tabindex="0">
+        <span class="nav-icon"><span class="material-symbols-rounded">auto_awesome</span></span>
+        <span>Generate Image</span>
+      </div>
+      <div class="nav-item" id="nav-video-gen" onclick="openVideoGenModal()" role="button" tabindex="0">
+        <span class="nav-icon"><span class="material-symbols-rounded">videocam</span></span>
+        <span>Generate Video</span>
+      </div>
+      <div class="nav-item" id="nav-ai-coder" onclick="openAiCoderModal()" role="button" tabindex="0">
+        <span class="nav-icon"><span class="material-symbols-rounded">terminal</span></span>
+        <span>AI Coder</span>
+      </div>
       <div class="nav-item active" onclick="document.getElementById('message-input').focus()" role="button" tabindex="0">
         <span class="nav-icon"><span class="material-symbols-rounded">psychology</span></span>
         <span>AI Chat</span>
@@ -220,6 +232,12 @@
             <button class="suggestion-chip tactile-chip" onclick="handleSuggestion('Give me a random fact')" role="listitem">
               <span class="material-symbols-rounded" style="vertical-align: middle; font-size: 16px;">science</span> Fun Fact
             </button>
+            <button class="suggestion-chip tactile-chip chip-image" onclick="openImageGenModal()" role="listitem">
+              <span class="material-symbols-rounded" style="vertical-align: middle; font-size: 16px;">auto_awesome</span> Generate Image
+            </button>
+            <button class="suggestion-chip tactile-chip chip-video" onclick="openVideoGenModal()" role="listitem">
+              <span class="material-symbols-rounded" style="vertical-align: middle; font-size: 16px;">videocam</span> Generate Video
+            </button>
             <button class="suggestion-chip tactile-chip" onclick="handleSuggestion('Search YouTube for lofi music')" role="listitem">
               <span class="material-symbols-rounded" style="vertical-align: middle; font-size: 16px;">music_note</span> YouTube
             </button>
@@ -257,10 +275,22 @@
     <div id="input-area" role="region" aria-label="Message input" class="glass-footer">
       <div class="input-wrapper glass-input-wrapper">
         <form id="input-form" role="search" aria-label="Chat form">
+          <div class="input-toolbar">
+            <button type="button" class="toolbar-btn" title="Attach image" aria-label="Attach image" onclick="document.getElementById('file-input').click()">
+              <span class="material-symbols-rounded">attach_file</span>
+            </button>
+            <button type="button" class="toolbar-btn" title="Generate image" aria-label="Generate image" onclick="openImageGenModal()">
+              <span class="material-symbols-rounded">auto_awesome</span>
+            </button>
+            <button type="button" class="toolbar-btn" title="Generate video" aria-label="Generate video" onclick="openVideoGenModal()">
+              <span class="material-symbols-rounded">videocam</span>
+            </button>
+          </div>
+
           <textarea
             id="message-input"
             name="message"
-            placeholder="Type a message or press the mic to speak..."
+            placeholder="Ask ARIA anything, or try 'generate image of a sunset'..."
             rows="1"
             maxlength="4000"
             autocomplete="off"
@@ -304,6 +334,104 @@
     </div>
 
   </main>
+</div>
+
+<!-- ── Image Generation Modal ───────────────────────────────── -->
+<div id="image-gen-modal" role="dialog" aria-modal="true" aria-label="Generate Image">
+  <div class="gen-modal-card glass-panel">
+    <div class="gen-modal-header">
+      <div class="gen-modal-title">
+        <span class="material-symbols-rounded" style="color:var(--primary-light);font-size:24px;">auto_awesome</span>
+        <h3>Generate Image</h3>
+      </div>
+      <button class="icon-btn" onclick="closeImageGenModal()" aria-label="Close">
+        <span class="material-symbols-rounded">close</span>
+      </button>
+    </div>
+    <div class="gen-modal-body">
+      <div class="gen-suggestions">
+        <span class="gen-chip" onclick="setImagePrompt('A futuristic cyberpunk city at night with neon lights')">🌆 Cyberpunk City</span>
+        <span class="gen-chip" onclick="setImagePrompt('A majestic dragon flying over mountains at sunset')">🐉 Dragon</span>
+        <span class="gen-chip" onclick="setImagePrompt('An astronaut exploring an alien planet with two moons')">🚀 Space</span>
+        <span class="gen-chip" onclick="setImagePrompt('A peaceful Japanese zen garden with cherry blossoms')">🌸 Zen Garden</span>
+        <span class="gen-chip" onclick="setImagePrompt('A steampunk laboratory with glowing inventions')">⚙️ Steampunk</span>
+      </div>
+      <textarea id="image-gen-prompt" placeholder="Describe the image you want to generate... (e.g. 'a golden sunset over ocean waves')" rows="3" maxlength="500"></textarea>
+      <div class="gen-modal-actions">
+        <button class="tactile-btn gen-cancel-btn" onclick="closeImageGenModal()">Cancel</button>
+        <button class="tactile-btn gen-submit-btn" id="image-gen-submit" onclick="submitImageGen()">
+          <span class="material-symbols-rounded" style="font-size:18px;vertical-align:middle;margin-right:4px;">auto_awesome</span>
+          Generate Image
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Video Generation Modal ───────────────────────────────── -->
+<div id="video-gen-modal" role="dialog" aria-modal="true" aria-label="Generate Video">
+  <div class="gen-modal-card glass-panel video-modal-card">
+    <div class="gen-modal-header">
+      <div class="gen-modal-title">
+        <span class="material-symbols-rounded" style="color:#06b6d4;font-size:24px;">videocam</span>
+        <h3>Generate Video</h3>
+      </div>
+      <button class="icon-btn" onclick="closeVideoGenModal()" aria-label="Close">
+        <span class="material-symbols-rounded">close</span>
+      </button>
+    </div>
+    <div class="gen-modal-body">
+      <p class="gen-modal-desc">Create a short AI-generated video from a text prompt. Powered by Gemini Veo.</p>
+      <div class="gen-suggestions">
+        <span class="gen-chip" onclick="setVideoPrompt('A timelapse of a city from dawn to dusk')">🌅 City Timelapse</span>
+        <span class="gen-chip" onclick="setVideoPrompt('Ocean waves crashing on a rocky shore')">🌊 Ocean</span>
+        <span class="gen-chip" onclick="setVideoPrompt('A butterfly emerging from a chrysalis')">🦋 Nature</span>
+        <span class="gen-chip" onclick="setVideoPrompt('Stars rotating in the night sky')">⭐ Starfield</span>
+      </div>
+      <textarea id="video-gen-prompt" placeholder="Describe the video you want to generate... (e.g. 'a drone flying over snow-capped mountains')" rows="3" maxlength="500"></textarea>
+      <div class="gen-modal-actions">
+        <button class="tactile-btn gen-cancel-btn" onclick="closeVideoGenModal()">Cancel</button>
+        <button class="tactile-btn gen-submit-btn video-submit-btn" id="video-gen-submit" onclick="submitVideoGen()">
+          <span class="material-symbols-rounded" style="font-size:18px;vertical-align:middle;margin-right:4px;">videocam</span>
+          Generate Video
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── AI Coder Modal ─────────────────────────────────────── -->
+<div id="ai-coder-modal" role="dialog" aria-modal="true" aria-label="AI Coder">
+  <div class="gen-modal-card glass-panel" style="max-width: 600px;">
+    <div class="gen-modal-header">
+      <div class="gen-modal-title">
+        <span class="material-symbols-rounded" style="color:var(--primary-light);font-size:24px;">terminal</span>
+        <h3>AI Coding Assistant</h3>
+      </div>
+      <button class="icon-btn" onclick="closeAiCoderModal()" aria-label="Close">
+        <span class="material-symbols-rounded">close</span>
+      </button>
+    </div>
+    <div class="gen-modal-body">
+      <p class="gen-modal-desc">Generate code, detect bugs, explain logic, and write tests.</p>
+      <div class="gen-suggestions" style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px;">
+        <span class="gen-chip" onclick="setCoderPrompt('Write a Python function to check whether a number is prime.')">💻 Generate Code</span>
+        <span class="gen-chip" onclick="setCoderPrompt('Explain this code in simple language:\\n\\nfor i in range(5): print(i)')">🔍 Explain Code</span>
+        <span class="gen-chip" onclick="setCoderPrompt('Find the bug in this code and suggest a fix:\\n\\nnumbers = [1,2,3]\\nprint(numbers[5])')">🐞 Detect Bugs</span>
+        <span class="gen-chip" onclick="setCoderPrompt('Convert this Python code to Java:\\n\\ndef greet(name):\\n    return f\'Hello, {name}!\'')">🔄 Convert Code</span>
+        <span class="gen-chip" onclick="setCoderPrompt('Write documentation for this function:\\n\\ndef is_prime(num):\\n    ...')">📝 Generate Docs</span>
+        <span class="gen-chip" onclick="setCoderPrompt('Generate pytest test cases for this function:\\n\\ndef is_prime(num):\\n    ...')">✅ Unit Tests</span>
+      </div>
+      <textarea id="ai-coder-prompt" placeholder="Describe what you want to code or paste your code here..." rows="5" maxlength="2000" style="font-family: monospace;"></textarea>
+      <div class="gen-modal-actions">
+        <button class="tactile-btn gen-cancel-btn" onclick="closeAiCoderModal()">Cancel</button>
+        <button class="tactile-btn gen-submit-btn" id="ai-coder-submit" onclick="submitAiCoder()">
+          <span class="material-symbols-rounded" style="font-size:18px;vertical-align:middle;margin-right:4px;">send</span>
+          Send to ARIA
+        </button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- ── Calculator Modal ──────────────────────────────────── -->
@@ -353,6 +481,30 @@
 <input type="file" id="file-input" style="display: none;" accept="image/*" aria-hidden="true" />
 <input type="file" id="doc-input" style="display: none;" accept=".txt,.pdf,.docx" aria-hidden="true" />
 <input type="file" id="resume-input" style="display: none;" accept=".txt,.pdf,.docx" aria-hidden="true" />
+
+<!-- ── Mobile Bottom Nav ─────────────────────────────────── -->
+<nav id="mobile-bottom-nav" aria-label="Mobile navigation">
+  <button class="mob-nav-btn" onclick="newChat()" title="New Chat">
+    <span class="material-symbols-rounded">add_comment</span>
+    <span>New Chat</span>
+  </button>
+  <button class="mob-nav-btn" id="mob-history-btn" onclick="toggleSidebar()" title="Recent Chats">
+    <span class="material-symbols-rounded">history</span>
+    <span>History</span>
+  </button>
+  <button class="mob-nav-btn" onclick="openAiCoderModal()" title="AI Coder">
+    <span class="material-symbols-rounded">terminal</span>
+    <span>Coder</span>
+  </button>
+  <button class="mob-nav-btn" onclick="openImageGenModal()" title="Generate Image">
+    <span class="material-symbols-rounded">auto_awesome</span>
+    <span>Image</span>
+  </button>
+  <button class="mob-nav-btn" onclick="toggleMic()" title="Voice">
+    <span class="material-symbols-rounded">mic</span>
+    <span>Voice</span>
+  </button>
+</nav>
 
 <!-- ── JavaScript ───────────────────────────────────────── -->
 <script src="{{ url_for('static', filename='js/script.js') }}"></script>

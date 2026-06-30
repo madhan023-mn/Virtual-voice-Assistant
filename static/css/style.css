@@ -1456,3 +1456,277 @@ button {
 .delete-hist-btn:hover {
   color: #ff0000;
 }
+
+/* ── Code Blocks ─────────────────────────────────────────── */
+.code-block-wrapper {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin: 10px 0;
+  overflow: hidden;
+}
+.code-block-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid var(--border);
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+.code-lang-label {
+  text-transform: uppercase;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+}
+.code-copy-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+}
+.code-copy-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
+}
+.code-block {
+  margin: 0;
+  padding: 12px;
+  overflow-x: auto;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+/* ── Generated Media ─────────────────────────────────────── */
+.gen-image-bubble, .gen-video-bubble {
+  padding: 8px !important;
+  background: transparent !important;
+  border: 1px solid var(--border);
+}
+.gen-caption {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin: 4px 8px 8px;
+}
+.gen-image, .gen-video {
+  max-width: 100%;
+  border-radius: 6px;
+  display: block;
+}
+.gen-image-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 8px;
+  padding: 0 8px 4px;
+}
+.url-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  background: var(--primary-subtle, rgba(124, 58, 237, 0.15));
+  color: var(--primary-light, #a78bfa);
+  border-radius: 6px;
+  text-decoration: none;
+  font-size: 0.8rem;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+.url-action-btn:hover {
+  background: rgba(124, 58, 237, 0.25);
+}
+
+/* ── Message Copy Button ─────────────────────────────────── */
+.msg-copy-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 2px;
+  margin-left: 8px;
+  border-radius: 4px;
+  opacity: 0;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+}
+.msg-content:hover .msg-copy-btn {
+  opacity: 1;
+}
+.msg-copy-btn:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* ── Modals (Generation & AI Coder) ──────────────────────── */
+div[role="dialog"] {
+  position: fixed;
+  top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  z-index: 2000;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+div[role="dialog"].open {
+  display: flex;
+  animation: fadeIn 0.2s ease forwards;
+}
+.gen-modal-card {
+  width: 100%;
+  max-width: 500px;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+  transform: translateY(20px);
+  animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.gen-modal-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.gen-modal-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.gen-modal-title h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+.gen-modal-body {
+  padding: 20px;
+}
+.gen-modal-desc {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin-top: 0;
+  margin-bottom: 16px;
+}
+.gen-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.gen-chip {
+  padding: 6px 12px;
+  border-radius: 16px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid var(--border);
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: var(--text-secondary);
+}
+.gen-chip:hover {
+  background: rgba(255,255,255,0.1);
+  color: var(--text-primary);
+  border-color: rgba(255,255,255,0.2);
+}
+.gen-modal-body textarea {
+  width: 100%;
+  background: rgba(0,0,0,0.2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  resize: vertical;
+  min-height: 80px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.gen-modal-body textarea:focus {
+  border-color: var(--primary-light, #a78bfa);
+}
+.gen-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+}
+.gen-cancel-btn {
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+}
+.gen-cancel-btn:hover {
+  background: rgba(255,255,255,0.05);
+  color: var(--text-primary);
+}
+.gen-submit-btn {
+  background: var(--primary, #7c3aed);
+  color: white;
+  border: none;
+}
+.gen-submit-btn:hover {
+  background: var(--primary-hover, #6d28d9);
+}
+.video-submit-btn {
+  background: #06b6d4;
+}
+.video-submit-btn:hover {
+  background: #0891b2;
+}
+
+/* ── Mobile Bottom Nav ───────────────────────────────────── */
+#mobile-bottom-nav {
+  display: none;
+  position: fixed;
+  bottom: 0; left: 0; width: 100%;
+  background: rgba(20, 20, 25, 0.85);
+  backdrop-filter: blur(12px);
+  border-top: 1px solid var(--border);
+  z-index: 100;
+  padding: 8px 10px 15px; /* Extra bottom padding for iOS home bar */
+}
+.mob-nav-btn {
+  flex: 1;
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 8px 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+  border-radius: 8px;
+}
+.mob-nav-btn:hover, .mob-nav-btn:active {
+  color: var(--primary-light, #a78bfa);
+  background: rgba(124, 58, 237, 0.1);
+}
+.mob-nav-btn span.material-symbols-rounded {
+  font-size: 22px;
+}
+.mob-nav-btn span:last-child {
+  font-size: 0.65rem;
+  font-weight: 500;
+}
+
+/* ── Responsiveness overrides ────────────────────────────── */
+@media (max-width: 768px) {
+  #mobile-bottom-nav {
+    display: flex;
+  }
+  #input-area {
+    padding-bottom: 75px !important; /* Space for bottom nav */
+  }
+}
