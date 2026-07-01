@@ -14,6 +14,14 @@ from commands import route_command
 from assistant import get_ai_response, clear_conversation
 import database
 import admin_db
+import smtplib
+import random
+import string
+import re
+import requests
+from bs4 import BeautifulSoup
+from textblob import TextBlob
+from email.message import EmailMessage
 
 # ──────────────────────────────────────────────────────────────────────────────
 # App setup
@@ -79,9 +87,46 @@ def login():
 def register():
     username = request.form.get("username", "").strip()
     password = request.form.get("password", "")
-    if database.create_user(username, password):
+    email = request.form.get("email", "").strip()
+    if database.create_user(username, password, email):
         return render_template("login.html", msg="Registration successful! Please sign in.")
     return render_template("login.html", error="Username already exists or invalid.")
+
+@app.route("/forgot-password", methods=["GET", "POST"])
+def forgot_password():
+    if request.method == "POST":
+        email = request.form.get("email", "").strip()
+        if not email:
+            return render_template("forgot_password.html", error="Email is required.")
+        
+        # Verify user by email exists (requires a query, wait we don't have a direct check in database.py but reset_password handles it)
+        # We should generate a new password
+        new_password = ''.join(random.choices(string.ascii_letters + string.digits, k=10))
+        if database.reset_password(email, new_password):
+            # Send email
+            if cfg.EMAIL_ADDRESS and cfg.EMAIL_PASSWORD:
+                try:
+                    msg = EmailMessage()
+                    msg.set_content(f"Your new password is: {new_password}\nPlease login and change it.")
+                    msg["Subject"] = "Password Reset Request"
+                    msg["From"] = cfg.EMAIL_ADDRESS
+                    msg["To"] = email
+                    
+                    server = smtplib.SMTP("smtp.gmail.com", 587)
+                    server.starttls()
+                    server.login(cfg.EMAIL_ADDRESS, cfg.EMAIL_PASSWORD)
+                    server.send_message(msg)
+                    server.quit()
+                    return render_template("login.html", msg="A new password has been sent to your email.")
+                except Exception as e:
+                    logger.error(f"Error sending email: {e}")
+                    return render_template("forgot_password.html", error="Failed to send email. Please check server configuration.")
+            else:
+                return render_template("forgot_password.html", error="Email sending is not configured on the server.")
+        else:
+            return render_template("forgot_password.html", error="Email not found.")
+            
+    return render_template("forgot_password.html")
 
 @app.route("/logout")
 def logout():
@@ -112,6 +157,30 @@ def chat():
         lang = (data.get("lang") or "English").strip()
         logger.info("Chat [%s]: %s", session_id[:8], user_message)
 
+        # 0. Typo correction & URL scraping
+        # Auto-correct user message using TextBlob
+        try:
+            blob = TextBlob(user_message)
+            corrected_message = str(blob.correct())
+            if corrected_message.lower() != user_message.lower():
+                logger.info("Auto-corrected message: %s", corrected_message)
+                user_message = corrected_message
+        except Exception as e:
+            logger.warning(f"Typo correction failed: {e}")
+
+        # Extract URLs
+        urls = re.findall(r'(https?://\S+)', user_message)
+        context = ""
+        for url in urls:
+            try:
+                headers = {'User-Agent': 'Mozilla/5.0'}
+                res = requests.get(url, headers=headers, timeout=5)
+                soup = BeautifulSoup(res.text, 'html.parser')
+                text_content = soup.get_text(separator=' ', strip=True)
+                context += f"\n[Context from {url}]: {text_content[:2000]}"
+            except Exception as e:
+                logger.warning(f"Failed to scrape URL {url}: {e}")
+
         # 1. Try built-in commands first
         command_result = route_command(user_message)
         if command_result is not None:
@@ -122,6 +191,9 @@ def chat():
             ai_input = f"[Respond only in {lang}. Do not switch language under any circumstance.]\n{user_message}"
         else:
             ai_input = user_message
+            
+        if context:
+            ai_input += f"\n\nWebsite Context:{context}"
 
         # 3. Fall through to AI response
         ai_text = get_ai_response(ai_input, session_id)

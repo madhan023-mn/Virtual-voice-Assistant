@@ -40,6 +40,10 @@ class Config:
     SPOTIFY_CLIENT_SECRET = os.environ.get("SPOTIFY_CLIENT_SECRET", "")
     OMDB_API_KEY = os.environ.get("OMDB_API_KEY", "")
     NASA_API_KEY = os.environ.get("NASA_API_KEY", "DEMO_KEY")
+    
+    # Email SMTP (Forgot Password)
+    EMAIL_ADDRESS = os.environ.get("EMAIL_ADDRESS", "")
+    EMAIL_PASSWORD = os.environ.get("EMAIL_PASSWORD", "")
 
     # Wikipedia
     WIKIPEDIA_LANGUAGE = os.environ.get("WIKIPEDIA_LANGUAGE", "en")

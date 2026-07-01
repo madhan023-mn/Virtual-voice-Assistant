@@ -21,3 +21,7 @@ python-dateutil==2.9.0
 # Document parsing
 pypdf>=4.0.0
 python-docx>=1.1.0
+
+# NLP and Scraping
+beautifulsoup4>=4.12.3
+textblob>=0.18.0

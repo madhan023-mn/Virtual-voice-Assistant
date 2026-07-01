@@ -16,10 +16,16 @@ def init_db():
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             username TEXT UNIQUE NOT NULL,
+            email TEXT,
             password_hash TEXT NOT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
+    # Migrate existing db to add email if it doesn't exist
+    try:
+        c.execute("ALTER TABLE users ADD COLUMN email TEXT")
+    except sqlite3.OperationalError:
+        pass # Column already exists
     c.execute('''
         CREATE TABLE IF NOT EXISTS chat_history (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -34,7 +40,7 @@ def init_db():
     conn.commit()
     conn.close()
 
-def create_user(username, password):
+def create_user(username, password, email=""):
     if not username or not password:
         return False
     # Note: original DB might have used werkzeug or hashlib. We'll use hashlib to be safe if werkzeug was not used, or werkzeug if it was.
@@ -46,7 +52,7 @@ def create_user(username, password):
     conn = get_db_connection()
     c = conn.cursor()
     try:
-        c.execute('INSERT INTO users (username, password_hash) VALUES (?, ?)', (username, hashed))
+        c.execute('INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)', (username, email, hashed))
         conn.commit()
         return True
     except sqlite3.IntegrityError:
@@ -78,5 +84,17 @@ def verify_user(username, password):
             
     return False
 
+def reset_password(email, new_password):
+    if not email or not new_password:
+        return False
+    hashed = generate_password_hash(new_password)
+    conn = get_db_connection()
+    c = conn.cursor()
+    c.execute('UPDATE users SET password_hash = ? WHERE email = ?', (hashed, email))
+    updated = c.rowcount > 0
+    conn.commit()
+    conn.close()
+    return updated
+
 # Exported as required
-Database = type('Database', (), {'init_db': staticmethod(init_db), 'create_user': staticmethod(create_user), 'verify_user': staticmethod(verify_user)})
+Database = type('Database', (), {'init_db': staticmethod(init_db), 'create_user': staticmethod(create_user), 'verify_user': staticmethod(verify_user), 'reset_password': staticmethod(reset_password)})
