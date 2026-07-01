@@ -375,38 +375,8 @@ def upload_image():
     
     try:
         from PIL import Image
-        
-        # 1. Try OpenRouter First
-        if cfg.OPENROUTER_API_KEY:
-            try:
-                import base64
-                import requests
-                file.stream.seek(0)
-                base64_image = base64.b64encode(file.stream.read()).decode('utf-8')
-                headers = {
-                    "Authorization": f"Bearer {cfg.OPENROUTER_API_KEY}",
-                    "Content-Type": "application/json"
-                }
-                payload = {
-                    "model": "google/gemini-flash-1.5",
-                    "messages": [
-                        {
-                            "role": "user",
-                            "content": [
-                                {"type": "text", "text": "Describe this image in detail:"},
-                                {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}
-                            ]
-                        }
-                    ]
-                }
-                response = requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=payload)
-                response.raise_for_status()
-                return jsonify({"text": response.json()['choices'][0]['message']['content'].strip()})
-            except Exception as ex:
-                logger.exception("OpenRouter image upload failed, falling back to Gemini")
-
-        # 2. Fallback to Gemini SDK
         from google import genai
+        
         file.stream.seek(0)
         img = Image.open(file.stream)
         client = genai.Client(api_key=cfg.GEMINI_API_KEY)
@@ -417,7 +387,7 @@ def upload_image():
         return jsonify({"text": response.text.strip()})
     except Exception as e:
         logger.exception("Gemini Image upload error")
-        return jsonify({"text": "I'm sorry, but both OpenRouter and Gemini failed to analyze the image."})
+        return jsonify({"error": "I'm sorry, but Gemini failed to analyze the image."}), 500
 
 @app.route("/api/upload/document", methods=["POST"])
 def upload_document():
@@ -572,28 +542,6 @@ def generate_image():
                     return jsonify({"image_url": f"data:image/png;base64,{b64}", "prompt": prompt})
             except Exception as img_err:
                 logger.warning("Gemini Imagen failed: %s", img_err)
-
-        # ── Try OpenRouter DALL-E ──────────────────────────────────────────────
-        if cfg.OPENROUTER_API_KEY:
-            try:
-                import requests as req_lib
-                headers = {
-                    "Authorization": f"Bearer {cfg.OPENROUTER_API_KEY}",
-                    "Content-Type": "application/json"
-                }
-                payload = {
-                    "model": "openai/dall-e-3",
-                    "prompt": prompt,
-                    "n": 1,
-                    "size": "1024x1024"
-                }
-                r = req_lib.post("https://openrouter.ai/api/v1/images/generations",
-                                  headers=headers, json=payload, timeout=60)
-                r.raise_for_status()
-                img_url = r.json()["data"][0]["url"]
-                return jsonify({"image_url": img_url, "prompt": prompt})
-            except Exception as or_err:
-                logger.warning("OpenRouter image generation failed: %s", or_err)
 
         # ── Fallback: describe the image via AI ───────────────────────────────
         ai_desc = get_ai_response(

@@ -106,23 +106,6 @@
       </div>
     </nav>
 
-    {% if username == 'developer' %}
-    <!-- Developer Dashboard -->
-    <div class="chat-history-section" aria-label="Registered users">
-      <h3>Registered Users (Admin)</h3>
-      <div id="developer-user-list" role="list" style="max-height: 250px; overflow-y: auto;">
-        <div style="padding:8px 12px;font-size:0.75rem;color:var(--text-muted)">Loading users...</div>
-      </div>
-    </div>
-    {% else %}
-    <!-- Chat History -->
-    <div class="chat-history-section" aria-label="Chat history">
-      <h3>Recent Chats</h3>
-      <div id="chat-history-list" role="list">
-        <div style="padding:8px 12px;font-size:0.75rem;color:var(--text-muted)">No history yet</div>
-      </div>
-    </div>
-    {% endif %}
 
     <!-- Footer -->
     <div class="sidebar-footer">
@@ -334,6 +317,32 @@
     </div>
 
   </main>
+
+  <!-- ── Right Sidebar ─────────────────────────────────────── -->
+  <aside id="right-sidebar" class="glass-panel" role="complementary" aria-label="Recent History">
+    <div class="sidebar-header" style="padding: 24px 20px 16px;">
+      <h2 style="font-size: 1.1rem; margin: 0; background: linear-gradient(135deg, var(--primary-light), var(--accent)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-weight: 700;">History</h2>
+    </div>
+    
+    {% if username == 'developer' %}
+    <!-- Developer Dashboard -->
+    <div class="chat-history-section" aria-label="Registered users" style="flex: 1; padding: 16px 12px;">
+      <h3>Registered Users (Admin)</h3>
+      <div id="developer-user-list" role="list" style="max-height: calc(100vh - 100px); overflow-y: auto;">
+        <div style="padding:8px 12px;font-size:0.75rem;color:var(--text-muted)">Loading users...</div>
+      </div>
+    </div>
+    {% else %}
+    <!-- Chat History -->
+    <div class="chat-history-section" aria-label="Chat history" style="flex: 1; padding: 16px 12px;">
+      <h3>Recent Chats</h3>
+      <div id="chat-history-list" role="list">
+        <div style="padding:8px 12px;font-size:0.75rem;color:var(--text-muted)">No history yet</div>
+      </div>
+    </div>
+    {% endif %}
+  </aside>
+
 </div>
 
 <!-- ── Image Generation Modal ───────────────────────────────── -->
